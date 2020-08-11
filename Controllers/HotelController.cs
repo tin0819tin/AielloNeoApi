@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Neo4j.Driver;
 using Aiello_Restful_API.ORM;
+using Namotion.Reflection;
 
 
 
@@ -51,25 +52,44 @@ namespace Aiello_Restful_API.Controllers
                         foreach (var record in queryResult)
                         {
                             var node = record["hotel"].As<INode>();
+                            var hotelProp = node.TryGetPropertyValue<Dictionary<string,object>>("Properties");
+                            var name = hotelProp.TryGetValue("name", out object value) ?value : null;
+                            var displayName = hotelProp.TryGetValue("displayName", out object value1)? value1 : "null";
+                            var description = hotelProp.TryGetValue("description", out object value2) ? value2 : "null";
+                            var address = hotelProp.TryGetValue("address", out object value3) ? value3 : "null";
+                            var contactPhone = hotelProp.TryGetValue("contactPhone", out object value4) ? value4 : "null";
+                            var geo = hotelProp.TryGetValue("geo", out object value5) ? value5 : "null";
+                            var frontDeskPhone = hotelProp.TryGetValue("frontDeskPhone", out object value6) ? value6 : "null";
+                            var restaurantPhone = hotelProp.TryGetValue("restaurantPhone", out object value7) ? value7 : "null";
+                            var sosPhone = hotelProp.TryGetValue("sosPhone", out object value8) ? value8 : "null";
+                            var welcomeIntroduction = hotelProp.TryGetValue("welcomeIntroduction", out object value9) ? value9 : "null";
+                            var welcomeIntroduction_cn = hotelProp.TryGetValue("welcomeIntroduction_cn", out object value10) ? value10 : "null";
+                            var welcomeIntroduction_tw = hotelProp.TryGetValue("welcomeIntroduction_tw", out object value11) ? value11 : "null";
+                            var asr = hotelProp.TryGetValue("asr", out object value12) ? value12: 0;
+                            var createdAt = hotelProp.TryGetValue("createdAt", out object value13) ? value13 : "null";
+                            var updatedAt = hotelProp.TryGetValue("updatedAt", out object value14) ? value14 : "null";
+
                             listResult.Add(new Hotel
                             {
-                                name = node["name"].As<string>(),
-                                displayName = node["displayName"].As<string>(),
-                                address = node["address"].As<string>(),
-                                contactPhone = node["contactPhone"].As<string>(),
-                                geo = node["geo"].As<string>(),
+                                //name = node["name"].As<string>(),
+                                name = name.As<string>(),
+                                displayName = displayName.As<string>(),
+                                address = address.As<string>(),                            
+                                contactPhone = contactPhone.As<string>(),
+                                geo = geo.As<string>(),
                                 domain = record["domain"].As<string>(),
                                 city = record["city"].As<string>(),
-                                description = node["description"].As<string>(),
-                                frontDeskPhone = node["frontDeskPhone"].As<string>(),
-                                restaurantPhone = node["restaurantPhone"].As<string>(),
-                                sosPhone = node["sosPhone"].As<string>(),
-                                welcomeIntroduction = node["welcomeIntroduction"].As<string>(),
-                                welcomeIntroduction_cn = node["welcomeIntroduction_cn"].As<string>(),
-                                welcomeIntroduction_tw = node["welcomeIntroduction_tw"].As<string>(),
-                                asr = node["asr"].As<int>(),
-                                createdAt = node["createdAt"].As<string>(),
-                                updatedAt = node["updatedAt"].As<string>()
+                                description = description.As<string>(),
+                                frontDeskPhone = frontDeskPhone.As<string>(),
+                                restaurantPhone = restaurantPhone.As<string>(),
+                                sosPhone = sosPhone.As<string>(),
+                                welcomeIntroduction = welcomeIntroduction.As<string>(),
+                                welcomeIntroduction_cn = welcomeIntroduction_cn.As<string>(),
+                                welcomeIntroduction_tw = welcomeIntroduction_tw.As<string>(),
+                                asr = asr.As<int>(),
+                                createdAt = createdAt.As<string>(),
+                                updatedAt = updatedAt.As<string>()
+                                
                             });
                         }
 
@@ -440,6 +460,8 @@ namespace Aiello_Restful_API.Controllers
                         });
                         _logger.LogInformation(createCity2HotelResult);
 
+                        _logger.LogInformation(_hotelcypher.CreateBCMnBRT2Hotel(session, hotel));
+
                         return CreatedAtAction(nameof(GetHotelByName), new { hotel.name }, hotel);
 
                     }
@@ -467,6 +489,8 @@ namespace Aiello_Restful_API.Controllers
                                 return _hotelcypher.CreateCity2Hotel(tx, hotel).Single()[0].As<string>();
                             });
                             _logger.LogInformation(createCity2HotelResult);
+
+                            _logger.LogInformation(_hotelcypher.CreateBCMnBRT2Hotel(session, hotel));
 
                             return CreatedAtAction(nameof(GetHotelByName), new { hotel.name }, hotel);
                         }

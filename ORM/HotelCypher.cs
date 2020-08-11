@@ -179,6 +179,16 @@ namespace Aiello_Restful_API.ORM
             return tx.Run(createHotelNew, new { hotel });
         }
 
+        public string CreateBCMnBRT2Hotel(Neo4j.Driver.ISession session, Hotel hotel)
+        {
+            var connectBCM2Hotel = "MATCH (h:Hotel {name:'Aiello_Dev'}) OPTIONAL MATCH (h)-[:HAS_BROADCAST_MESSAGE]->(bcm:BroadcastMessage) WITH bcm MATCH (h1:Hotel {name:$hotel.name}) MERGE (h1)-[:HAS_BROADCAST_MESSAGE]->(bcm) RETURN h1";
+            var connectBRT2Hotel = "MATCH (h:Hotel {name:'Aiello_Dev'}) OPTIONAL MATCH (h)-[:REPLY_TEMPLATE]->(brt:BotResTemplate) WITH brt MATCH (h1:Hotel {name:$hotel.name}) MERGE (h1)-[:REPLY_TEMPLATE]->(brt) RETURN h1";
+            session.WriteTransaction(tx => tx.Run(connectBCM2Hotel, new { hotel }));
+            session.WriteTransaction(tx => tx.Run(connectBRT2Hotel, new { hotel }));
+
+            return "Connect to BroadcastMessage and BotResTemplate Success!";
+        }
+
         public IResult UpdateHotel(ITransaction tx, string name, string domain, Hotel hotel)
         {
             var updateHotel = "MATCH (h:Hotel {name:$hotel.name}) WHERE h.domain = $hotel.domain SET h.address = $hotel.address , h.contactPhone = $hotel.contactPhone, h.geo = $hotel.geo, h.description = $hotel.description, h.frontDeskPhone = $hotel.frontDeskPhone, h.restaurantPhone = $hotel.restaurantPhone, h.sosPhone = $hotel.sosPhone,  h.welcomeIntroduction =  $hotel.welcomeIntroduction, h.welcomeIntroduction_cn = $hotel.welcomeIntroduction_cn, h.welcomeIntroduction_tw = $hotel.welcomeIntroduction_tw, h.`asr` = $hotel.`asr`, h.updatedAt = datetime({timezone: '+08:00'}) RETURN h";
