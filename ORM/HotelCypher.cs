@@ -149,11 +149,11 @@ namespace Aiello_Restful_API.ORM
         {
             var createDomain = "MATCH (h:Hotel {name:$hotel.name}) MERGE (d:Domain {name:$hotel.domain})-[:OWN_HOTEL]->(h) RETURN 'Domain('+ d.name +') is connect to Hotel(' + h.name + ')' ";
             var createDomainNew = "MATCH (h:Hotel {name:$hotel.name}) MERGE (d:Domain {name:$hotel.domain}) MERGE (d)-[:OWN_HOTEL]->(h) RETURN 'Domain('+ d.name +') is connect to Hotel(' + h.name + ')'";
-            var createDomainNew2 = "MATCH (h:Hotel {name:$hotel.name}) WHERE h.domain = $hotel.domain MERGE (d:Domain {name:$hotel.domain}) MERGE (d)-[:OWN_HOTEL]->(h) RETURN 'Domain('+ d.name +') is connect to Hotel(' + h.name + ')'";
             var createDomainNew3 = "MATCH (h:Hotel {name:$hotel.name}) WITH h MERGE (d:Domain {name:$hotel.domain}) WITH d,h WHERE NOT EXISTS { MATCH ()-[:OWN_HOTEL]->(h) } WITH h,d MERGE (d)-[:OWN_HOTEL]->(h) RETURN 'Domain('+ d.name +') is connect to Hotel(' + h.name + ')' ";
-           
 
-            return tx.Run(createDomainNew3, new { hotel });
+            var createDomainNew4 = "MATCH (h:Hotel {name:$hotel.name}) WITH h MERGE (d:Domain {name:$hotel.domain}) WITH d,h WHERE NOT EXISTS { MATCH ()-[:OWN_HOTEL]->(h) } WITH h,d MERGE (d)-[:OWN_HOTEL]->(h) RETURN 'Domain('+ d.name +') is connect to Hotel(' + h.name + ')' ";
+
+            return tx.Run(createDomainNew, new { hotel });
         }
 
         /// <summary>
@@ -165,10 +165,12 @@ namespace Aiello_Restful_API.ORM
         public IResult CreateCity2Hotel(ITransaction tx, Hotel hotel)
         {
             var connectCity = "MATCH (h:Hotel {name:$hotel.name}), (c:City {name:$hotel.city}) MERGE (h)-[:IS_LOCATED_AT]->(c) RETURN 'City('+ c.name +') is connect to Hotel(' + h.name + ')' ";
-            var connectCityNew = "MATCH (h:Hotel {name:$hotel.name}), (c:City {name:$hotel.city}) WHERE h.domain = $hotel.domain MERGE (h)-[:IS_LOCATED_AT]->(c) RETURN 'City('+ c.name +') is connect to Hotel(' + h.name + ')' ";
+            var connectCityNew = "MATCH (h:Hotel {name:$hotel.name}) MATCH (c:City {name:$hotel.city}) WHERE h.domain = $hotel.domain MERGE (h)-[:IS_LOCATED_AT]->(c) RETURN 'City('+ c.name +') is connect to Hotel(' + h.name + ')' ";
             var connectCityNew2 = "MATCH (h:Hotel {name:$hotel.name}) MATCH (c:City {name:$hotel.city}) WITH h,c WHERE NOT EXISTS { MATCH (h)-[:IS_LOCATED_AT]->() } WITH h,c MERGE (h)-[:IS_LOCATED_AT]->(c) RETURN 'City('+ c.name +') is connect to Hotel(' + h.name + ')' ";
 
-            return tx.Run(connectCityNew2, new { hotel });
+         
+
+            return tx.Run(connectCity, new { hotel });
         }
 
         public IResult CreateHotel(ITransaction tx, Hotel hotel)
