@@ -41,6 +41,7 @@ namespace Aiello_Restful_API.ORM
             var cypherBody = "MATCH (h:Hotel {name:$hotelname})-[:HAS_FLOOR]->(f:Floor)<-[:IS_FLOOR_AT]-(r:Room)-[:IS_ROOM_STATE_OF]->(rs:RoomState) WHERE ";
             var cypherFloor = "f.name = $floor";
             var cypherRoomState = "rs.name = $roomState";
+            var cypherAllRoomState = " WITH r,h,f,rt MATCH (r)-[:IS_ROOM_STATE_OF]->(rs:RoomState) ";
             var cypherOptionalRoomType = "WITH r,h,f,rs OPTIONAL MATCH (r)-[:IS_ROOM_TYPE_OF]->(rt:RoomType)";
             var cypherRoomType = "WITH r,h,f,rs MATCH (r)-[:IS_ROOM_TYPE_OF]->(rt:RoomType {name:$roomType})";
             var cypherReturn = " RETURN r as room, h.name as hotelName, f.name as floor, rt.name as roomType, collect(rs.name) as roomStates";
@@ -54,22 +55,22 @@ namespace Aiello_Restful_API.ORM
                     getRoomList = cypherBody + cypherFloor + ' ' + cypherOptionalRoomType + cypherReturn;
                     break;
                 case "1010":
-                    getRoomList = cypherBody + cypherRoomState + ' ' + cypherOptionalRoomType + cypherReturn; 
+                    getRoomList = cypherBody + cypherRoomState + ' ' + cypherOptionalRoomType + cypherAllRoomState +  cypherReturn; 
                     break;
                 case "1001":
                     getRoomList = cypherBody0 + cypherRoomType + cypherReturn; 
                     break;
                 case "1110":
-                    getRoomList = cypherBody + cypherFloor + " AND " + cypherRoomState + ' ' + cypherOptionalRoomType + cypherReturn;
+                    getRoomList = cypherBody + cypherFloor + " AND " + cypherRoomState + ' ' + cypherOptionalRoomType + cypherAllRoomState + cypherReturn;
                     break;
                 case "1101":
                     getRoomList = cypherBody + cypherFloor + " " + cypherRoomType + cypherReturn;
                     break;
                 case "1011":
-                    getRoomList = cypherBody + cypherRoomState + " " + cypherRoomType + cypherReturn;
+                    getRoomList = cypherBody + cypherRoomState + " " + cypherRoomType + cypherAllRoomState + cypherReturn;
                     break;
                 case "1111":
-                    getRoomList = cypherBody + cypherRoomState + " AND " + cypherRoomState + " " + cypherRoomType + cypherReturn;
+                    getRoomList = cypherBody + cypherRoomState + " AND " + cypherRoomState + " " + cypherRoomType + cypherAllRoomState + cypherReturn;
                     break;
             }
 
@@ -87,7 +88,7 @@ namespace Aiello_Restful_API.ORM
         public IResult ConnectRoomType2Room(ITransaction tx, Room room)
         {
 
-            var checkRoomTypeExisted = "MATCH (h:Hotel {name:$room.hotelName})-[:HAS_FLOOR]->(f:Floor)<-[:IS_FLOOR_AT]-(r:Room) WITH r MATCH (r)-[:IS_ROOM_TYPE_OF]->(rt:RoomType {name:$room.roomType}) RETURN rt as roomtype";
+            var checkRoomTypeExisted = "MATCH (h:Hotel {name:$room.hotelName})-[:HAS_FLOOR]->(f:Floor)<-[:IS_FLOOR_AT]-(r:Room) WITH r MATCH (r)-[:IS_ROOM_TYPE_OF]->(rt:RoomType {name:$room.roomType}) RETURN distinct(rt.name) as roomtype";
             var test = tx.Run(checkRoomTypeExisted, new { room });
             var check_result = test.SingleOrDefault()?["roomtype"];
 
@@ -99,7 +100,7 @@ namespace Aiello_Restful_API.ORM
             }
             else
             {
-                var upddateRoomType = "MATCH (h:Hotel {name:$room.hotelName})-[:HAS_FLOOR]->(f:Floor)<-[:IS_FLOOR_AT]-(r:Room) WITH r MATCH (r)-[:IS_ROOM_TYPE_OF]->(rt:RoomType {name:$room.roomType}) WITH rt MATCH (h:Hotel {name:$room.hotelName})-[:HAS_FLOOR]->(f:Floor { name:$room.floor })<-[:IS_FLOOR_AT]-(r:Room { name:$room.name}) WITH r,rt MERGE (r)-[:IS_ROOM_TYPE_OF]->(rt) WITH r,rt SET rt.updatedAt = datetime({timezone: '+08:00'}) RETURN 'RoomType('+ rt.name +') is connect to Room(' + r.name + ')'";
+                var upddateRoomType = "MATCH (h:Hotel {name:$room.hotelName})-[:HAS_FLOOR]->(f:Floor)<-[:IS_FLOOR_AT]-(r:Room) WITH r MATCH (r)-[:IS_ROOM_TYPE_OF]->(rt:RoomType {name:$room.roomType}) WITH distinct(rt) MATCH (h:Hotel {name:$room.hotelName})-[:HAS_FLOOR]->(f:Floor { name:$room.floor })<-[:IS_FLOOR_AT]-(r:Room { name:$room.name}) WITH r,rt MERGE (r)-[:IS_ROOM_TYPE_OF]->(rt) WITH r,rt SET rt.updatedAt = datetime({timezone: '+08:00'}) RETURN 'RoomType('+ rt.name +') is connect to Room(' + r.name + ')'";
                 return tx.Run(upddateRoomType, new { room });
             }
             
@@ -204,7 +205,7 @@ namespace Aiello_Restful_API.ORM
                 tx.Run(deleteRoomType, new { room, name });
             }
 
-            var checkRoomTypeExisted = "MATCH (h:Hotel {name:$room.hotelName})-[:HAS_FLOOR]->(f:Floor)<-[:IS_FLOOR_AT]-(r:Room) WITH r MATCH (r)-[:IS_ROOM_TYPE_OF]->(rt:RoomType {name:$room.roomType}) RETURN rt as roomtype";
+            var checkRoomTypeExisted = "MATCH (h:Hotel {name:$room.hotelName})-[:HAS_FLOOR]->(f:Floor)<-[:IS_FLOOR_AT]-(r:Room) WITH r MATCH (r)-[:IS_ROOM_TYPE_OF]->(rt:RoomType {name:$room.roomType}) RETURN distinct(rt.name) as roomtype";
             var test = tx.Run(checkRoomTypeExisted, new { room });
             var check_result2 = test.SingleOrDefault()?["roomtype"];
 
@@ -216,7 +217,7 @@ namespace Aiello_Restful_API.ORM
             }
             else
             {
-                var upddateRoomType = "MATCH (h:Hotel {name:$room.hotelName})-[:HAS_FLOOR]->(f:Floor)<-[:IS_FLOOR_AT]-(r:Room) WITH r MATCH (r)-[:IS_ROOM_TYPE_OF]->(rt:RoomType {name:$room.roomType}) WITH rt MATCH (h:Hotel {name:$room.hotelName})-[:HAS_FLOOR]->(f:Floor { name:$room.floor })<-[:IS_FLOOR_AT]-(r:Room { name:$name}) WITH r,rt MERGE (r)-[:IS_ROOM_TYPE_OF]->(rt) WITH r,rt SET r.updatedAt = datetime({timezone: '+08:00'}), rt.updatedAt = datetime({timezone: '+08:00'}) RETURN 'RoomType('+ rt.name +') is connect to Room(' + r.name + ')'";
+                var upddateRoomType = "MATCH (h:Hotel {name:$room.hotelName})-[:HAS_FLOOR]->(f:Floor)<-[:IS_FLOOR_AT]-(r:Room) WITH r MATCH (r)-[:IS_ROOM_TYPE_OF]->(rt:RoomType {name:$room.roomType}) WITH distinct(rt) MATCH (h:Hotel {name:$room.hotelName})-[:HAS_FLOOR]->(f:Floor { name:$room.floor })<-[:IS_FLOOR_AT]-(r:Room { name:$name}) WITH r,rt MERGE (r)-[:IS_ROOM_TYPE_OF]->(rt) WITH r,rt SET r.updatedAt = datetime({timezone: '+08:00'}), rt.updatedAt = datetime({timezone: '+08:00'}) RETURN 'RoomType('+ rt.name +') is connect to Room(' + r.name + ')'";
                 return tx.Run(upddateRoomType, new { room, name });
             }
        
