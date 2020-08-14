@@ -23,11 +23,13 @@ namespace Aiello_Restful_API.Controllers
     {
         private readonly ILogger<RoomStateController> _logger;
         private readonly RoomStateCypher _roomStateCypher;
+        private readonly IDriver _driver;
 
-        public RoomStateController(ILogger<RoomStateController> logger, RoomStateCypher roomstatecypher)
+        public RoomStateController(ILogger<RoomStateController> logger, RoomStateCypher roomstatecypher, IDriver driver)
         {
             _logger = logger;
             _roomStateCypher = roomstatecypher;
+            _driver = driver;
         }
 
         // GET: api/<ValuesController>
@@ -37,7 +39,7 @@ namespace Aiello_Restful_API.Controllers
             var listResult = new List<RoomState>();
             try
             {
-                using (var session = Neo4jDriver._driver.Session())
+                using (var session = _driver.Session())
                 {
                     var getResult = session.ReadTransaction(tx =>
                     {
@@ -76,7 +78,7 @@ namespace Aiello_Restful_API.Controllers
 
             try
             {
-                using (var session = Neo4jDriver._driver.Session())
+                using (var session = _driver.Session())
                 {
                     var getResult = session.ReadTransaction(tx =>
                     {
@@ -125,7 +127,7 @@ namespace Aiello_Restful_API.Controllers
 
             try
             {
-                using (var session = Neo4jDriver._driver.Session())
+                using (var session = _driver.Session())
                 {
                     var createResult = session.WriteTransaction(tx =>
                     {
@@ -151,7 +153,7 @@ namespace Aiello_Restful_API.Controllers
         {
             try
             {
-                using (var session = Neo4jDriver._driver.Session())
+                using (var session = _driver.Session())
                 {
                     session.WriteTransaction(tx => _roomStateCypher.UpdateRoomState(tx, name, roomstate));
                     _logger.LogInformation("UPDATE RoomState Success!");
@@ -167,24 +169,24 @@ namespace Aiello_Restful_API.Controllers
         }
 
         // DELETE api/<ValuesController>/5
-        [HttpDelete("{name}")]
-        public ActionResult<RoomState> DeleteRoomStatebyName(string name)
-        {
-            try
-            {
-                using (var session = Neo4jDriver._driver.Session())
-                {
-                    session.WriteTransaction(tx => _roomStateCypher.DeleteRoomState(tx, name));
-                    _logger.LogInformation("DELETE RoomState Success!");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unknown Exception!");
-                return BadRequest();
-            }
+        //[HttpDelete("{name}")]
+        //public ActionResult<RoomState> DeleteRoomStatebyName(string name)
+        //{
+        //    try
+        //    {
+        //        using (var session = Neo4jDriver._driver.Session())
+        //        {
+        //            session.WriteTransaction(tx => _roomStateCypher.DeleteRoomState(tx, name));
+        //            _logger.LogInformation("DELETE RoomState Success!");
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Unknown Exception!");
+        //        return BadRequest();
+        //    }
 
-            return Ok();
-        }
+        //    return Ok();
+        //}
     }
 }

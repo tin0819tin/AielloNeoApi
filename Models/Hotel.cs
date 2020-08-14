@@ -47,10 +47,7 @@ namespace Aiello_Restful_API.Models
         public string welcomeIntroduction_tw { get; set; }
         public int asr { get; set; }
 
-        [Required]
         public string createdAt { get; set; }
-
-        [Required]
         public string updatedAt { get; set; }
 
     }

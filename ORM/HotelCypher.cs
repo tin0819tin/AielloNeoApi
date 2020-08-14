@@ -61,7 +61,7 @@ namespace Aiello_Restful_API.ORM
                     getHotelListNew = "MATCH (d:Domain)-->(h:Hotel {asr:$asr})-->(c:City) RETURN h as hotel, d.name as domain, c.name as city";
                     break;
                 case "1100":
-                    getHotelListNew = "MATCH(d: Domain { name:$domain})--> (h: Hotel)-- > (c:City {name:$city}) RETURN h as hotel, d.name as domain, c.name as city";
+                    getHotelListNew = "MATCH(d: Domain { name:$domain})-->(h: Hotel)-->(c:City {name:$city}) RETURN h as hotel, d.name as domain, c.name as city";
                     break;
                 case "1010":
                     getHotelListNew = "MATCH(d: Domain)--> (h: Hotel {displayName:$displayName})-- > (c:City {name:$city}) RETURN h as hotel, d.name as domain, c.name as city";
@@ -70,10 +70,10 @@ namespace Aiello_Restful_API.ORM
                     getHotelListNew = "MATCH(d: Domain )--> (h: Hotel {asr:$asr})-- > (c:City {name:$city}) RETURN h as hotel, d.name as domain, c.name as city";
                     break;
                 case "0110":
-                    getHotelListNew = "MATCH(d: Domain { name:$domain})--> (h: Hotel {displayName:$displayName})-- > (c:City) RETURN h as hotel, d.name as domain, c.name as city";
+                    getHotelListNew = "MATCH(d: Domain { name:$domain})-->(h: Hotel {displayName:$displayName})-- > (c:City) RETURN h as hotel, d.name as domain, c.name as city";
                     break;
                 case "0101":
-                    getHotelListNew = "MATCH(d: Domain { name:$domain})--> (h: Hotel {asr:$asr})-- > (c:City {name:$city}) RETURN h as hotel, d.name as domain, c.name as city";
+                    getHotelListNew = "MATCH(d: Domain { name:$domain})-->(h: Hotel {asr:$asr})-->(c:City) RETURN h as hotel, d.name as domain, c.name as city";
                     break;
                 case "0011":
                     getHotelListNew = "MATCH(d: Domain )--> (h: Hotel {displayName:$displayName, asr:$asr})-- > (c:City ) RETURN h as hotel, d.name as domain, c.name as city";
@@ -151,9 +151,9 @@ namespace Aiello_Restful_API.ORM
             var createDomainNew = "MATCH (h:Hotel {name:$hotel.name}) MERGE (d:Domain {name:$hotel.domain}) MERGE (d)-[:OWN_HOTEL]->(h) RETURN 'Domain('+ d.name +') is connect to Hotel(' + h.name + ')'";
             var createDomainNew3 = "MATCH (h:Hotel {name:$hotel.name}) WITH h MERGE (d:Domain {name:$hotel.domain}) WITH d,h WHERE NOT EXISTS { MATCH ()-[:OWN_HOTEL]->(h) } WITH h,d MERGE (d)-[:OWN_HOTEL]->(h) RETURN 'Domain('+ d.name +') is connect to Hotel(' + h.name + ')' ";
 
-            var createDomainNew4 = "MATCH (h:Hotel {name:$hotel.name}) WITH h MERGE (d:Domain {name:$hotel.domain}) WITH d,h WHERE NOT EXISTS { MATCH ()-[:OWN_HOTEL]->(h) } WITH h,d MERGE (d)-[:OWN_HOTEL]->(h) RETURN 'Domain('+ d.name +') is connect to Hotel(' + h.name + ')' ";
+            var createDomainNew4 = "MATCH (h:Hotel {name:$hotel.name}) WITH h MERGE (d:Domain {name:$hotel.domain}) WITH d,h WHERE NOT EXISTS ( ()-[:OWN_HOTEL]->(h) ) WITH h,d MERGE (d)-[:OWN_HOTEL]->(h) RETURN 'Domain('+ d.name +') is connect to Hotel(' + h.name + ')' ";
 
-            return tx.Run(createDomainNew, new { hotel });
+            return tx.Run(createDomainNew4, new { hotel });
         }
 
         /// <summary>
@@ -168,9 +168,9 @@ namespace Aiello_Restful_API.ORM
             var connectCityNew = "MATCH (h:Hotel {name:$hotel.name}) MATCH (c:City {name:$hotel.city}) WHERE h.domain = $hotel.domain MERGE (h)-[:IS_LOCATED_AT]->(c) RETURN 'City('+ c.name +') is connect to Hotel(' + h.name + ')' ";
             var connectCityNew2 = "MATCH (h:Hotel {name:$hotel.name}) MATCH (c:City {name:$hotel.city}) WITH h,c WHERE NOT EXISTS { MATCH (h)-[:IS_LOCATED_AT]->() } WITH h,c MERGE (h)-[:IS_LOCATED_AT]->(c) RETURN 'City('+ c.name +') is connect to Hotel(' + h.name + ')' ";
 
-         
+            var connectCityNew3 = "MATCH (h:Hotel {name:$hotel.name}) MATCH (c:City {name:$hotel.city}) WITH h,c WHERE NOT EXISTS ( (h)-[:IS_LOCATED_AT]->() ) WITH h,c MERGE (h)-[:IS_LOCATED_AT]->(c) RETURN 'City('+ c.name +') is connect to Hotel(' + h.name + ')' ";
 
-            return tx.Run(connectCity, new { hotel });
+            return tx.Run(connectCityNew3, new { hotel });
         }
 
         public IResult CreateHotel(ITransaction tx, Hotel hotel)
@@ -209,7 +209,7 @@ namespace Aiello_Restful_API.ORM
             
             var test1 = tx.Run(updateHotelNew2, new { name, domain, hotel }).Single()[0];
 
-            var createDomainAndCity = "MATCH (h:Hotel {name:$name}) MATCH (d:Domain {name:$hotel.domain}) WITH h,d WHERE NOT EXISTS { MATCH ()-[:OWN_HOTEL]->(h) } WITH h,d MERGE (d)-[:OWN_HOTEL]->(h) WITH h,d MATCH (c:City {name:$hotel.city}) WITH h,c,d WHERE NOT EXISTS { MATCH (h)-[:IS_LOCATED_AT]->() } MERGE (h)-[:IS_LOCATED_AT]->(c) RETURN h as hotel, d.name as domain, c.name as city";
+            var createDomainAndCity = "MATCH (h:Hotel {name:$name}) MATCH (d:Domain {name:$hotel.domain}) WITH h,d WHERE NOT EXISTS ( ()-[:OWN_HOTEL]->(h) ) WITH h,d MERGE (d)-[:OWN_HOTEL]->(h) WITH h,d MATCH (c:City {name:$hotel.city}) WITH h,c,d WHERE NOT EXISTS ( (h)-[:IS_LOCATED_AT]->() ) MERGE (h)-[:IS_LOCATED_AT]->(c) RETURN h as hotel, d.name as domain, c.name as city";
 
             return tx.Run(createDomainAndCity, new { name, hotel });
             

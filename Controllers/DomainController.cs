@@ -24,11 +24,13 @@ namespace Aiello_Restful_API.Controllers
     {
         private readonly ILogger<DomainController> _logger;
         private readonly DomainCypher _domainCypher;
+        private readonly IDriver _driver;
 
-        public DomainController(ILogger<DomainController> logger, DomainCypher domainCypher)
+        public DomainController(ILogger<DomainController> logger, DomainCypher domainCypher, IDriver driver)
         {
             _logger = logger;
             _domainCypher = domainCypher;
+            _driver = driver;
         }
 
         // GET: api/<ValuesController>
@@ -38,7 +40,7 @@ namespace Aiello_Restful_API.Controllers
             var listResult = new List<string>();
             try
             {
-                using (var session = Neo4jDriver._driver.Session())
+                using (var session = _driver.Session())
                 {
                     var getResult = session.ReadTransaction(tx =>
                     {
@@ -65,28 +67,28 @@ namespace Aiello_Restful_API.Controllers
         }
 
         // GET api/<ValuesController>/5
-        [HttpGet("{id}")]
-        public string Get(int id)
-        {
-            return "value";
-        }
+        //[HttpGet("{id}")]
+        //public string Get(int id)
+        //{
+        //    return "value";
+        //}
 
-        // POST api/<ValuesController>
-        [HttpPost]
-        public void Post([FromBody] string value)
-        {
-        }
+        //// POST api/<ValuesController>
+        //[HttpPost]
+        //public void Post([FromBody] string value)
+        //{
+        //}
 
-        // PUT api/<ValuesController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
-        {
-        }
+        //// PUT api/<ValuesController>/5
+        //[HttpPut("{id}")]
+        //public void Put(int id, [FromBody] string value)
+        //{
+        //}
 
-        // DELETE api/<ValuesController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
-        {
-        }
+        //// DELETE api/<ValuesController>/5
+        //[HttpDelete("{id}")]
+        //public void Delete(int id)
+        //{
+        //}
     }
 }

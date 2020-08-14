@@ -25,8 +25,9 @@ namespace Aiello_Restful_API
             try
             {
                 logger.Debug("init main");
-                Neo4jDriver.Register("bolt://localhost:7687", "neo4j", "password");
+                //Neo4jDriver.Register("bolt://localhost:7687", "neo4j", "password");
                 //Neo4jDriver.Register("bolt://13.94.28.121:7687", "neo4j", "haL5hrM7EJAARny2");
+                
                 CreateHostBuilder(args).Build().Run();
             }
             catch (Exception exception)

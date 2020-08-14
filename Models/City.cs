@@ -15,10 +15,7 @@ namespace Aiello_Restful_API.Models
         public string name_cn { get; set; }
         public string name_tw { get; set; }
 
-        [Required]
         public string createdAt { get; set; }
-
-        [Required]
         public string updatedAt { get; set; }
 
     }

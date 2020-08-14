@@ -9,6 +9,7 @@ using System.ComponentModel.DataAnnotations;
 using Aiello_Restful_API.Models;
 using Aiello_Restful_API.Config;
 using Aiello_Restful_API.Controllers;
+using Aiello_Restful_API.DTO;
 using Newtonsoft.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -29,11 +30,15 @@ namespace Aiello_Restful_API.Controllers
 
         private readonly ILogger<HotelController> _logger;
         private readonly HotelCypher _hotelcypher;
+        private readonly CityCypher _cityCypher;
+        private readonly IDriver _driver;
 
-        public HotelController(ILogger<HotelController> logger, HotelCypher hotelCypher)
+        public HotelController(ILogger<HotelController> logger, HotelCypher hotelCypher, CityCypher cityCypher, IDriver driver)
         {
             _logger = logger;
             _hotelcypher = hotelCypher;
+            _driver = driver;
+            _cityCypher = cityCypher;
         }
         // GET: api/<ValuesController>
         [HttpGet]
@@ -43,7 +48,7 @@ namespace Aiello_Restful_API.Controllers
 
             try
             {
-                using (var session = Neo4jDriver._driver.Session())
+                using (var session = _driver.Session())
                 {
                     var getResult = session.ReadTransaction(tx =>
                     {
@@ -313,7 +318,7 @@ namespace Aiello_Restful_API.Controllers
 
             try
             {
-                using (var session = Neo4jDriver._driver.Session())
+                using (var session = _driver.Session())
                 {
                     var getResult = session.ReadTransaction(tx =>
                     {
@@ -435,8 +440,18 @@ namespace Aiello_Restful_API.Controllers
 
             try
             {
-                using (var session = Neo4jDriver._driver.Session())
+                using (var session = _driver.Session())
                 {
+                    var cityResult = session.ReadTransaction(tx => 
+                    {
+                        return _cityCypher.GetCity(tx, hotel.city).Any();
+                    });
+                    if (!cityResult)
+                    {
+                        _logger.LogError("No city exist!");
+                        return BadRequest(hotel);
+                    }
+                    
                     var domainResult = session.ReadTransaction(tx =>
                     {
                         return _hotelcypher.CheckDomain(tx, hotel).Any();
@@ -520,7 +535,7 @@ namespace Aiello_Restful_API.Controllers
 
             try
             {
-                using(var session = Neo4jDriver._driver.Session())
+                using(var session = _driver.Session())
                 {
                     var updateResult = session.WriteTransaction(tx => {
                         //tx.Rollback()
@@ -571,24 +586,24 @@ namespace Aiello_Restful_API.Controllers
         }
 
         // DELETE api/<ValuesController>/5
-        [HttpDelete("{hotelname}")]
-        public ActionResult<Hotel> DeleteHotelbyName([FromBody] string domainname, string hotelname)
-        {
-            try
-            {
-                using (var session = Neo4jDriver._driver.Session())
-                {
-                    session.WriteTransaction(tx => _hotelcypher.DeleteHotel(tx, domainname, hotelname));
-                    _logger.LogInformation("DELETE Hotel Success!");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unknown Exception!");
-                return BadRequest();
-            }
+        //[HttpDelete("{hotelname}")]
+        //public ActionResult<Hotel> DeleteHotelbyName([FromBody] string domainname, string hotelname)
+        //{
+        //    try
+        //    {
+        //        using (var session = Neo4jDriver._driver.Session())
+        //        {
+        //            session.WriteTransaction(tx => _hotelcypher.DeleteHotel(tx, domainname, hotelname));
+        //            _logger.LogInformation("DELETE Hotel Success!");
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Unknown Exception!");
+        //        return BadRequest();
+        //    }
 
-            return Ok();
-        }
+        //    return Ok();
+        //}
     }
 }

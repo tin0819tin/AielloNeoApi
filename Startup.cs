@@ -18,6 +18,7 @@ using Aiello_Restful_API.Config;
 using Aiello_Restful_API.Controllers;
 using Aiello_Restful_API.ORM;
 using Aiello_Restful_API.Data;
+using Neo4j.Driver;
 
 namespace Aiello_Restful_API
 {
@@ -28,7 +29,7 @@ namespace Aiello_Restful_API
             Configuration = configuration;
         }
 
-        public IConfiguration Configuration { get; }
+        public IConfiguration Configuration { get; set; }
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
@@ -41,22 +42,26 @@ namespace Aiello_Restful_API
             services.AddScoped<DomainCypher>();
             services.AddScoped<RoomCypher>();
             services.AddScoped<RoomStateCypher>();
-            services.AddScoped<FloorCypher>();
-            services.AddScoped<DeviceStatusCypher>();
-            services.AddScoped<DeviceCypher>();
+            //services.AddScoped<FloorCypher>();
+            //services.AddScoped<DeviceStatusCypher>();
+            //services.AddScoped<DeviceCypher>();
+
+            //Neo4j DB
+            IConfiguration state = Configuration.GetSection("Neo4jTesting");           
+            services.AddSingleton(GraphDatabase.Driver(state["URL"], AuthTokens.Basic(state["ID"], state["PW"])));
 
             //EF core
-            services.AddDbContext<TableContext>(options =>
-            {
-                options.UseSqlServer(Configuration.GetConnectionString("DefaultConnection"));
-            });
+            //services.AddDbContext<TableContext>(options =>
+            //{
+            //    options.UseSqlServer(Configuration.GetConnectionString("TableContext"));
+            //});
 
             // Register the Swagger services
             services.AddSwaggerDocument();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, TableContext tableContext)
         {
             if (env.IsDevelopment())
             {
@@ -74,6 +79,10 @@ namespace Aiello_Restful_API
                 endpoints.MapControllers();
                 //endpoints
             });
+
+            //EF core
+            //tableContext.Database.EnsureCreated();    
+           
 
             // Register the Swagger generator and the Swagger UI middlewares
             app.UseOpenApi();

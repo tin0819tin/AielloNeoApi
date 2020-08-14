@@ -25,11 +25,13 @@ namespace Aiello_Restful_API.Controllers
     {
         private readonly ILogger<RoomController> _logger;
         private readonly RoomCypher _roomcypher;
+        private readonly IDriver _driver;
 
-        public RoomController(ILogger<RoomController> logger, RoomCypher roomCypher)
+        public RoomController(ILogger<RoomController> logger, RoomCypher roomCypher, IDriver driver)
         {
             _logger = logger;
             _roomcypher = roomCypher;
+            _driver = driver;
         }
 
         // GET: api/<ValuesController>
@@ -40,7 +42,7 @@ namespace Aiello_Restful_API.Controllers
             
             try
             {
-                using (var session = Neo4jDriver._driver.Session())
+                using (var session = _driver.Session())
                 {
                     var getResult = session.ReadTransaction(tx =>
                     {
@@ -101,7 +103,7 @@ namespace Aiello_Restful_API.Controllers
 
             try
             {
-                using (var session = Neo4jDriver._driver.Session())
+                using (var session = _driver.Session())
                 {
                     var getResult = session.ReadTransaction(tx =>
                     {
@@ -170,7 +172,7 @@ namespace Aiello_Restful_API.Controllers
 
             try
             {
-                using (var session = Neo4jDriver._driver.Session())
+                using (var session = _driver.Session())
                 {       
 
                     var createFloor2HotelResult = session.WriteTransaction(tx =>
@@ -207,7 +209,7 @@ namespace Aiello_Restful_API.Controllers
                     string roomState = "Available";
                     var createRoomState2RoomResult = session.WriteTransaction(tx =>
                     {
-                        return _roomcypher.ConnectRoomState2Room(tx, room, roomState).SingleOrDefault();
+                        return _roomcypher.ConnectRoomState2Room(tx, room.name, room, roomState).SingleOrDefault();
                     });
                     var result3 = createRoomState2RoomResult?[0].As<string>();
 
@@ -245,7 +247,7 @@ namespace Aiello_Restful_API.Controllers
             
             try
             {
-               using (var session = Neo4jDriver._driver.Session())
+               using (var session = _driver.Session())
                {
                     /*
                     var updateFloorResult = session.WriteTransaction(tx =>
@@ -304,13 +306,13 @@ namespace Aiello_Restful_API.Controllers
                     }
                     else
                     {       
-                        session.WriteTransaction(tx => _roomcypher.DeleteRoomState(tx, room));
+                        session.WriteTransaction(tx => _roomcypher.DeleteRoomState(tx, name, room));
                         
                         foreach (string roomState in room.roomStates)
                         {
                             var createRoomState2RoomResult = session.WriteTransaction(tx =>
                             {
-                                return _roomcypher.ConnectRoomState2Room(tx, room, roomState).SingleOrDefault();
+                                return _roomcypher.ConnectRoomState2Room(tx, name, room, roomState).SingleOrDefault();
                             });
                             var updateRoomState = createRoomState2RoomResult?[0].As<string>();
 
@@ -331,7 +333,7 @@ namespace Aiello_Restful_API.Controllers
                         //Add RoomType
                         var createRoomType2RoomResult = session.WriteTransaction(tx =>
                         {
-                            return _roomcypher.UpdateRoomType(tx, room).SingleOrDefault();
+                            return _roomcypher.UpdateRoomType(tx, name, room).SingleOrDefault();
                         });
 
                         _logger.LogInformation(createRoomType2RoomResult[0].As<string>());
@@ -350,9 +352,9 @@ namespace Aiello_Restful_API.Controllers
         }
 
         // DELETE api/<ValuesController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
-        {
-        }
+        //[HttpDelete("{id}")]
+        //public void Delete(int id)
+        //{
+        //}
     }
 }
