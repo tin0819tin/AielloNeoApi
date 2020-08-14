@@ -17,7 +17,7 @@ using Aiello_Restful_API.Models;
 using Aiello_Restful_API.Config;
 using Aiello_Restful_API.Controllers;
 using Aiello_Restful_API.ORM;
-using Aiello_Restful_API.Data;
+//using Aiello_Restful_API.Data;
 using Neo4j.Driver;
 
 namespace Aiello_Restful_API
@@ -61,7 +61,7 @@ namespace Aiello_Restful_API
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, TableContext tableContext)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             if (env.IsDevelopment())
             {

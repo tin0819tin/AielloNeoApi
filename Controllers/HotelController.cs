@@ -9,7 +9,7 @@ using System.ComponentModel.DataAnnotations;
 using Aiello_Restful_API.Models;
 using Aiello_Restful_API.Config;
 using Aiello_Restful_API.Controllers;
-using Aiello_Restful_API.DTO;
+
 using Newtonsoft.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
