@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Neo4j.Driver;
 using Aiello_Restful_API.ORM;
+using Namotion.Reflection;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -48,11 +49,15 @@ namespace Aiello_Restful_API.Controllers
                         foreach (var record in queryResult)
                         {
                             var node = record["roomstate"].As<INode>();
+                            var RoomStateprop = node.TryGetPropertyValue<Dictionary<string, object>>("Properties");
+                            var createdAt = RoomStateprop.TryGetValue("createdAt", out object value1) ? value1 : "null";
+                            var updatedAt = RoomStateprop.TryGetValue("updatedAt", out object value2) ? value2 : "null";
+
                             listResult.Add(new RoomState
                             {
                                 name = node["name"].As<string>(),
-                                createdAt = node["createdAt"].As<string>(),
-                                updatedAt = node["updatedAt"].As<string>()
+                                createdAt = createdAt.As<string>(),
+                                updatedAt = updatedAt.As<string>()
                             });
                         }
 
