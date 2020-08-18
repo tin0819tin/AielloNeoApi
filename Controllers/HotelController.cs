@@ -309,7 +309,7 @@ namespace Aiello_Restful_API.Controllers
         // GET api/<ValuesController>/name
         //[Route("GetHotelByName")]
         [HttpGet("{name}")]
-        public ActionResult<Hotel> GetHotelByName(string name, string domainname)
+        public ActionResult<Hotel> GetHotelByName(string name,[Required] string domainname)
         {
 
             var matchResult = new Hotel();
