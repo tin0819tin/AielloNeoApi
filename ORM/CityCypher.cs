@@ -41,7 +41,7 @@ namespace Aiello_Restful_API.ORM
 
         public IResult UpdateCity(ITransaction tx, City city)
         {
-            var updateCity = "MERGE (c:City {name:$city.name}) ON MATCH SET c.name = $city.name, c.timeZone = $city.timeZone, c.name_cn = $city.name_cn, c.name_tw = $city.name_tw, c.updatedAt = datetime({timezone: '+08:00'}) RETURN c";
+            var updateCity = "MATCH (c:City {name:$city.name}) SET c.name = $city.name, c.timeZone = $city.timeZone, c.name_cn = $city.name_cn, c.name_tw = $city.name_tw, c.updatedAt = datetime({timezone: '+08:00'}) RETURN c";
 
             return tx.Run(updateCity, new { city });
         }

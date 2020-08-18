@@ -41,7 +41,7 @@ namespace Aiello_Restful_API.ORM
 
         public IResult UpdateRoomState(ITransaction tx, string name, RoomState roomstate)
         {
-            var updateRoomState = "MERGE (r:RoomState {name:$name}) ON MATCH SET r.name = $roomstate.name, r.updatedAt = datetime({timezone: '+08:00'}) RETURN r";
+            var updateRoomState = "MATCH (r:RoomState {name:$name}) SET r.name = $roomstate.name, r.updatedAt = datetime({timezone: '+08:00'}) RETURN r";
 
             return tx.Run(updateRoomState, new { name, roomstate });
         }
