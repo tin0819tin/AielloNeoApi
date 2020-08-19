@@ -1,6 +1,7 @@
 ﻿using Aiello_Restful_API.Models;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Neo4j.Driver;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,9 +14,9 @@ namespace Aiello_Restful_API.ORM
 {
     public class RoomCypher
     {
-        public IResult GetRoombyName(ITransaction tx, string name, string hotelname)
+        public IResult GetRoombyNameCypher(ITransaction tx, string name, string hotelname)
         {
-            var getRoombyName = "MATCH (h:Hotel {name:$hotelname})-[:HAS_FLOOR]->(f:Floor)<-[:IS_FLOOR_AT]-(r:Room {name:$name})-[:IS_ROOM_TYPE_OF]->(rt:RoomType) WITH r,h,f,rt MATCH (r)-[:IS_ROOM_STATE_OF]->(rs:RoomState) RETURN r as room, h.name as hotelName, f.name as floor, rt.name as roomtype, collect(rs.name) as roomstates";
+            var getRoombyName = "MATCH (h:Hotel {name:$hotelname})-[:HAS_FLOOR]->(f:Floor)<-[:IS_FLOOR_AT]-(r:Room {name:$name})-[:IS_ROOM_STATE_OF]->(rs:RoomState) WITH r,h,f,rs OPTIONAL MATCH (r)-[:IS_ROOM_TYPE_OF]->(rt:RoomType) RETURN r as room, h.name as hotelName, f.name as floor, rt.name as roomtype, collect(rs.name) as roomstates";
             
             return tx.Run(getRoombyName, new { name, hotelname });
         }
@@ -27,7 +28,67 @@ namespace Aiello_Restful_API.ORM
             return tx.Run(getRoombyName, new { name, hotelname });
         }
 
-        public IResult GetRoomList(ITransaction tx, string hotelname, string floor, string roomState, string roomType)
+        public Room GetRoombyName(IDriver driver, string name, string hotelname)
+        {
+            var matchResult = new Room();
+            string floor = "";
+            string roomtype = "";
+            string hotelName = "";
+            var roomStates = new HashSet<string>();
+
+            using (var session = driver.Session())
+            {
+                try
+                {
+                    var getResult = session.ReadTransaction(tx =>
+                    {
+                        var queryResult = GetRoombyNameCypher(tx, name, hotelname).SingleOrDefault();
+
+                        if (queryResult == null)
+                        {
+                            return null;
+                        }
+
+                        var room = queryResult?["room"];
+                        floor = queryResult["floor"].ToString();
+                        if(queryResult?["roomtype"] != null)
+                        {
+                            roomtype = queryResult?["roomtype"].ToString();
+                        }
+                        hotelName = queryResult["hotelName"].ToString();
+                        foreach (string roomState in queryResult["roomstates"].As<List<string>>())
+                        {
+                            roomStates.Add(roomState);
+                        }
+
+                        return room.As<INode>().Properties;
+
+                    });
+
+                    if(getResult != null)
+                    {
+                        var result = JsonConvert.SerializeObject(getResult);
+                        var final_result = JsonConvert.DeserializeObject<Room>(result);
+                        final_result.floor = floor;
+                        final_result.roomType = roomtype;
+                        final_result.hotelName = hotelName;
+                        final_result.roomStates = roomStates;
+                        return final_result;
+                    }
+                    else
+                    {
+                        return null;
+                    }
+                }
+                catch (Exception)
+                {
+                    throw;
+                }
+
+            }
+        }
+
+        public IResult GetRoomListCypher(ITransaction tx, string hotelname, string floor, string roomState, string roomType)
         {
             string task = "";
 
@@ -76,6 +137,52 @@ namespace Aiello_Restful_API.ORM
 
             
             return tx.Run(getRoomList, new { hotelname, floor, roomState, roomType });
+        }
+
+        public List<Room> GetRoomList(IDriver driver, string hotelname, string floor, string roomState, string roomType)
+        {
+            var listResult = new List<Room>();
+
+            using (var session = driver.Session())
+            {
+                try
+                {
+                    var getResult = session.ReadTransaction(tx =>
+                    {
+                        var queryResult = GetRoomListCypher(tx, hotelname, floor, roomState, roomType);
+
+                        foreach (var record in queryResult)
+                        {
+                            var node = record["room"].As<INode>();
+                            var roomStates = new HashSet<string>();
+                            foreach (string roomState in record["roomStates"].As<List<string>>())
+                            {
+                                roomStates.Add(roomState);
+                            }
+
+                            listResult.Add(new Room
+                            {
+                                name = node["name"].As<string>(),
+                                hotelName = record["hotelName"].As<string>(),
+                                floor = record["floor"].As<string>(),
+                                roomStates = roomStates,
+                                roomType = record["roomType"].As<string>(),
+                                createdAt = node["createdAt"].As<string>(),
+                                updatedAt = node["updatedAt"].As<string>()
+                            });
+                        }
+
+                        return (listResult);
+                    });
+
+                    return getResult;
+                }
+                catch (Exception)
+                {
+                    throw;
+                }
+                
+            }
         }
 
         public IResult ConnectRoomState2Room(ITransaction tx, string name, Room room, string roomState)

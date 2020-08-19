@@ -25,7 +25,7 @@ namespace Aiello_Restful_API.Models
 
         
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore, TypeNameHandling = TypeNameHandling.All)]
-        [JsonConverter(typeof(GuidConverter))]
+        //[JsonConverter(typeof(GuidConverter))]
         public string uuid { get ; set;}
 
         /*

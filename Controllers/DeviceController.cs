@@ -24,6 +24,7 @@ namespace Aiello_Restful_API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [ApiVersion("1.0")]
     public class DeviceController : ControllerBase
     {
         private readonly ILogger<DeviceController> _logger;
@@ -55,55 +56,22 @@ namespace Aiello_Restful_API.Controllers
         // GET: api/<ValuesController>
         [HttpGet]
         public ActionResult<List<Device>> GetDeviceList([FromQuery] string hotelName, [FromQuery] string room, [FromQuery] string uuid, [FromQuery] string deviceStatus)
-        {
-            var listResult = new List<Device>();
-            
+        {                   
             try
             {
-                using (var session = _driver.Session())
+                var getResult = _devicecypher.GetDeviceList(_driver, hotelName, room, uuid, deviceStatus);
+                
+                if (getResult.Count() > 0)
                 {
-                    var getResult = session.ReadTransaction(tx =>
-                    {
-                        var queryResult = _devicecypher.GetDeciveList(tx, hotelName, room, uuid, deviceStatus);
-
-                        foreach (var record in queryResult)
-                        {
-                            var node = record["device"].As<INode>();
-                            var deviceStatuses = new HashSet<string>();
-                            foreach (string deviceStatus in record["deviceStatuses"].As<List<string>>())
-                            {
-                                deviceStatuses.Add(deviceStatus);
-                            }
-
-                            listResult.Add(new Device
-                            {
-                                versionAPK = node["versionAPK"].As<string>(),
-                                versionImage = node["versionImage"].As<string>(),
-                                versionPushService = node["versionPushService"].As<string>(),
-                                mac = node["mac"].As<string>(),
-                                uuid = node["uuid"].As<string>(),
-                                hotel = record["hotel"].As<string>(),
-                                room = record["room"].As<string>(),
-                                deviceStatus = deviceStatuses,
-                                createdAt = node["createdAt"].As<string>(),
-                                updatedAt = node["updatedAt"].As<string>()
-                            });
-                        }
-
-                        return (listResult);
-                    });
-
-                    if (getResult.Count() > 0)
-                    {
-                        _logger.LogInformation("Get Device List Success!");
-                        return Ok(getResult);
-                    }
-                    else
-                    {
-                        _logger.LogError("Result Not Found!");
-                        return BadRequest();
-                    }
+                    _logger.LogInformation("Get Device List Success!");
+                    return Ok(getResult);
                 }
+                else
+                {
+                    _logger.LogError("Result Not Found!");
+                    return BadRequest();
+                }
+                
             }
             catch (Exception ex)
             {
@@ -117,62 +85,23 @@ namespace Aiello_Restful_API.Controllers
         [HttpGet("{mac}")]
         public ActionResult<Device> GetDevicebyMac(string mac)
         {
-            var matchResult = new Device();
-            string hotel = "";
-            string room = "";
-            var deviceStatus = new HashSet<string>();
             
             try
             {
-                using (var session = _driver.Session())
+                var getResult = _devicecypher.GetDevicebyMac(_driver, mac);
+
+                if (getResult != null)
                 {
-                    var getDeviceResult = session.ReadTransaction(tx =>
-                    {
-                        var queryResult = _devicecypher.GetDevicebyMac(tx, mac).SingleOrDefault();
 
-                        if(queryResult == null)
-                        {
-                            _logger.LogError("No Device Found");
-                            return null;
-                        }
-                        var device = queryResult?["device"];
-                        hotel = queryResult?["hotel"].As<string>();
-                        room = queryResult?["room"].As<string>();
-
-
-                        if(queryResult?["deviceStatus"] != null)
-                        {
-                            foreach (string devicestatus in queryResult?["deviceStatus"].As<List<string>>())
-                            {
-                                deviceStatus.Add(devicestatus);
-                            }
-                        }
-
-                        return device.As<INode>().Properties;
-                    });
-
-
-                    var result = JsonConvert.SerializeObject(getDeviceResult);
-                    var final_result = JsonConvert.DeserializeObject<Device>(result);
-
-                    if (final_result != null)
-                    {
-                        matchResult = final_result;
-                        matchResult.hotel = hotel;
-                        matchResult.room = room;
-                        matchResult.deviceStatus = deviceStatus;
-
-                        _logger.LogInformation("Device Read!");
-                        return Ok(matchResult);
-                    }
-                    else
-                    {
-                        matchResult = null;
-                        _logger.LogError("Result Not Found!");
-                        return BadRequest(matchResult);
-                    }
-
+                    _logger.LogInformation("Device Read!");
+                    return Ok(getResult);
                 }
+                else
+                {
+                    _logger.LogError("Result Not Found!");
+                    return BadRequest(getResult);
+                }
+               
             }
             catch (Exception ex)
             {
@@ -210,8 +139,7 @@ namespace Aiello_Restful_API.Controllers
                 }
 
                 try
-                {               
-                    
+                {                                  
                     using (var session = _driver.Session())
                     {
                                
@@ -230,8 +158,8 @@ namespace Aiello_Restful_API.Controllers
                             }
                             catch (Exception ex)
                             {
-                                _logger.LogError(ex, "SQL transaction got Error!");
-                                //_devicecypher DeleteDevice
+                                session.WriteTransaction(tx => _devicecypher.DeleteDevice(tx, device));
+                                _logger.LogError(ex, "SQL transaction got Error!");                               
                                 return BadRequest(device);
                             }
                             
@@ -266,10 +194,10 @@ namespace Aiello_Restful_API.Controllers
                 {
                     var checkDeviceResult = session.ReadTransaction(tx =>
                     {
-                        return _devicecypher.GetDevicebyMac(tx, mac).Count();
+                        return _devicecypher.GetDevicebyMac(_driver, mac);
                     });
 
-                    if(checkDeviceResult == 0)
+                    if(checkDeviceResult == null)
                     {
                         _logger.LogError("No Device Found!");
                         return BadRequest(device);

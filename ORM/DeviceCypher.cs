@@ -15,7 +15,7 @@ namespace Aiello_Restful_API.ORM
 {
     public class DeviceCypher
     {
-        public IResult GetDeciveList(ITransaction tx, string hotel, string room, string uuid, string deviceStatus)
+        public IResult GetDeciveListCypher(ITransaction tx, string hotel, string room, string uuid, string deviceStatus)
         {
             string task = "";
 
@@ -32,7 +32,7 @@ namespace Aiello_Restful_API.ORM
             var cypheruuid = " d.uuid = $uuid ";
             var cypherOptionalDeviceStatus = " WITH h,r,d OPTIONAL MATCH (d)-[:IS_DEVICE_STATUS_OF]-(ds:DeviceStatus) ";
             var cypherDeviceStatus = " WITH h,r,d MATCH (d)-[:IS_DEVICE_STATUS_OF]-(dss:DeviceStatus {name:$deviceStatus}) WITH h,r,d MATCH (d)-[:IS_DEVICE_STATUS_OF]-(ds:DeviceStatus ) ";
-            var cypherReturn = " RETURN h.name as hotel, r.name as room, d as device, collect(ds.name) as deviceStatuses";
+            var cypherReturn = " RETURN h.name as hotel, r.name as room, collect(distinct(d)) as device, collect(ds.name) as deviceStatuses";
 
             switch (task)
             {
@@ -48,16 +48,121 @@ namespace Aiello_Restful_API.ORM
                 case "1001":
                     getDevice = cypherBody + cypherHotel + cypherDeviceStatus + cypherReturn;
                     break;
+                case "1101":
+                    getDevice = cypherBody + cypherHotel + "AND" + cypheRoom + cypherDeviceStatus + cypherReturn;
+                    break;
             }
 
             return tx.Run(getDevice, new { hotel, room, uuid, deviceStatus });
         }
 
-        public IResult GetDevicebyMac(ITransaction tx, string mac)
+        public List<Device> GetDeviceList(IDriver driver, string hotelName, string room, string uuid, string deviceStatus)
         {
-            var getDevice = "MATCH (d:Device {mac:$mac})-[:IS_BOUND_TO]->(r:Room)--(:Floor)--(h:Hotel) OPTIONAL MATCH (d)-[:IS_DEVICE_STATUS_OF]->(ds:DeviceStatus) RETURN d as device, r.name as room, h.name as hotel, ds.name as deviceStatus";
+            var listResult = new List<Device>();
+
+            using (var session = driver.Session())
+            {
+                try
+                {
+                    var getResult = session.ReadTransaction(tx =>
+                    {
+                        var queryResult = GetDeciveListCypher(tx, hotelName, room, uuid, deviceStatus);
+
+                        foreach (var record in queryResult)
+                        {
+                            
+                            var deviceStatuses = new HashSet<string>();
+                            foreach (string deviceStatus in record["deviceStatuses"].As<List<string>>())
+                            {
+                                deviceStatuses.Add(deviceStatus);                                                        
+                            }
+
+                            foreach (INode node in record["device"].As<List<INode>>())
+                            {
+                                listResult.Add(new Device
+                                {
+                                    versionAPK = node["versionAPK"].As<string>(),
+                                    versionImage = node["versionImage"].As<string>(),
+                                    versionPushService = node["versionPushService"].As<string>(),
+                                    mac = node["mac"].As<string>(),
+                                    uuid = node["uuid"].As<string>(),
+                                    hotel = record["hotel"].As<string>(),
+                                    room = record["room"].As<string>(),
+                                    deviceStatus = deviceStatuses,
+                                    createdAt = node["createdAt"].As<string>(),
+                                    updatedAt = node["updatedAt"].As<string>()
+                                });
+                            }                            
+                        }
+
+                        return (listResult);
+                    });
+
+
+                    return getResult;
+                }
+                catch(Exception)
+                {
+                    //return new List<Device>();
+                    throw;
+                }       
+            }
+        }
+
+        public IResult GetDevicebyMacCypher(ITransaction tx, string mac)
+        {
+            var getDevice = "MATCH (d:Device {mac:$mac})-[:IS_BOUND_TO]->(r:Room)--(:Floor)--(h:Hotel) OPTIONAL MATCH (d)-[:IS_DEVICE_STATUS_OF]->(ds:DeviceStatus) RETURN d as device, r.name as room, h.name as hotel, collect(ds.name) as deviceStatus";
 
             return tx.Run(getDevice, new { mac });
+        }
+
+        public Device GetDevicebyMac(IDriver driver, string mac)
+        {
+            var matchResult = new Device();
+            string hotel = "";
+            string room = "";
+            var deviceStatus = new HashSet<string>();
+
+            using (var session = driver.Session())
+            {
+                var getDeviceResult = session.ReadTransaction(tx =>
+                {
+                    var queryResult = GetDevicebyMacCypher(tx, mac).SingleOrDefault();
+
+                    if (queryResult == null)
+                    {
+                        return null;
+                    }
+                    var device = queryResult?["device"];
+                    hotel = queryResult?["hotel"].As<string>();
+                    room = queryResult?["room"].As<string>();
+
+
+                    if (queryResult?["deviceStatus"] != null)
+                    {
+                        foreach (string devicestatus in queryResult?["deviceStatus"].As<List<string>>())
+                        {
+                            deviceStatus.Add(devicestatus);
+                        }
+                    }
+
+                    return device.As<INode>().Properties;
+                });
+
+                if(getDeviceResult != null)
+                {
+                    var result = JsonConvert.SerializeObject(getDeviceResult);
+                    var final_result = JsonConvert.DeserializeObject<Device>(result);
+                    final_result.hotel = hotel;
+                    final_result.room = room;
+                    final_result.deviceStatus = deviceStatus;
+                    return final_result;
+                }
+                else
+                {
+                    return null;
+                }            
+            }
         }
 
         public IResult AddDevice(ITransaction tx, Device device, string uuid)
@@ -74,17 +179,17 @@ namespace Aiello_Restful_API.ORM
             return tx.Run(createDevice, new { device, uuid }); 
         }
 
-        public void DeleteDevice(IDriver driver)
+        public IResult DeleteDevice(ITransaction tx, Device device)
         {
             var deleteDevice = "MATCH (h:Hotel {name:$device.hotel})-[:HAS_FLOOR]->(f:Floor)<-[:IS_FLOOR_AT]-(r:Room {name:$device.room})<-[:IS_BOUND_TO]-(d:Device {mac:$device.mac}) DETACH DELETE d";
-            
-            using(var session = driver.Session())
-            {
-                session.WriteTransaction(tx => tx.Run(deleteDevice));
+
+            //using(var session = driver.Session())
+            //{
+            //    session.WriteTransaction(tx => tx.Run(deleteDevice));
 
 
-            }
-
+            //}
+            return tx.Run(deleteDevice, new { device });
         }
 
         public IResult UpdateDevice(ITransaction tx, string mac, Device device)

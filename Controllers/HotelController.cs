@@ -44,74 +44,22 @@ namespace Aiello_Restful_API.Controllers
         [HttpGet]
         public ActionResult<List<Hotel>> GetHotelList([FromQuery] string city, [FromQuery] string domain, [FromQuery] string displayName, [FromQuery] int asr = -1)
         {
-            var listResult = new List<Hotel>();
 
             try
             {
-                using (var session = _driver.Session())
+                var getResult = _hotelcypher.GetHotelList(_driver, city, domain, displayName, asr);
+
+                if (getResult.Count() > 0)
                 {
-                    var getResult = session.ReadTransaction(tx =>
-                    {
-                        var queryResult = _hotelcypher.GetHotelList(tx, city, domain, displayName, asr);
-
-                        foreach (var record in queryResult)
-                        {
-                            var node = record["hotel"].As<INode>();
-                            var hotelProp = node.TryGetPropertyValue<Dictionary<string,object>>("Properties");
-                            var name = hotelProp.TryGetValue("name", out object value) ?value : null;
-                            var displayName = hotelProp.TryGetValue("displayName", out object value1)? value1 : "null";
-                            var description = hotelProp.TryGetValue("description", out object value2) ? value2 : "null";
-                            var address = hotelProp.TryGetValue("address", out object value3) ? value3 : "null";
-                            var contactPhone = hotelProp.TryGetValue("contactPhone", out object value4) ? value4 : "null";
-                            var geo = hotelProp.TryGetValue("geo", out object value5) ? value5 : "null";
-                            var frontDeskPhone = hotelProp.TryGetValue("frontDeskPhone", out object value6) ? value6 : "null";
-                            var restaurantPhone = hotelProp.TryGetValue("restaurantPhone", out object value7) ? value7 : "null";
-                            var sosPhone = hotelProp.TryGetValue("sosPhone", out object value8) ? value8 : "null";
-                            var welcomeIntroduction = hotelProp.TryGetValue("welcomeIntroduction", out object value9) ? value9 : "null";
-                            var welcomeIntroduction_cn = hotelProp.TryGetValue("welcomeIntroduction_cn", out object value10) ? value10 : "null";
-                            var welcomeIntroduction_tw = hotelProp.TryGetValue("welcomeIntroduction_tw", out object value11) ? value11 : "null";
-                            var asr = hotelProp.TryGetValue("asr", out object value12) ? value12: 0;
-                            var createdAt = hotelProp.TryGetValue("createdAt", out object value13) ? value13 : "null";
-                            var updatedAt = hotelProp.TryGetValue("updatedAt", out object value14) ? value14 : "null";
-
-                            listResult.Add(new Hotel
-                            {
-                                //name = node["name"].As<string>(),
-                                name = name.As<string>(),
-                                displayName = displayName.As<string>(),
-                                address = address.As<string>(),                            
-                                contactPhone = contactPhone.As<string>(),
-                                geo = geo.As<string>(),
-                                domain = record["domain"].As<string>(),
-                                city = record["city"].As<string>(),
-                                description = description.As<string>(),
-                                frontDeskPhone = frontDeskPhone.As<string>(),
-                                restaurantPhone = restaurantPhone.As<string>(),
-                                sosPhone = sosPhone.As<string>(),
-                                welcomeIntroduction = welcomeIntroduction.As<string>(),
-                                welcomeIntroduction_cn = welcomeIntroduction_cn.As<string>(),
-                                welcomeIntroduction_tw = welcomeIntroduction_tw.As<string>(),
-                                asr = asr.As<int>(),
-                                createdAt = createdAt.As<string>(),
-                                updatedAt = updatedAt.As<string>()
-                                
-                            });
-                        }
-
-                        return (listResult); 
-                    });
-
-                    if (getResult.Count() > 0)
-                    {
-                        _logger.LogInformation("Get Hotel List Success!");
-                        return Ok(getResult);
-                    }
-                    else
-                    {
-                        _logger.LogError("Result Not Found!");
-                        return BadRequest();
-                    }
+                    _logger.LogInformation("Get Hotel List Success!");
+                    return Ok(getResult);
                 }
+                else
+                {
+                    _logger.LogError("Result Not Found!");
+                    return BadRequest(getResult);
+                }
+
             }
             catch(Exception ex)
             {
@@ -120,313 +68,33 @@ namespace Aiello_Restful_API.Controllers
             }
 
         }
-/*
-        [HttpGet("city")]
-        public ActionResult<List<Hotel>> GetHotelListbyCity(string city)
-        {
-            var listResult = new List<Hotel>();
-            //.Single()[0].As<List<object>>()
-            try
-            {
-                using (var session = Neo4jDriver._driver.Session())
-                {
-                    var getResult = session.ReadTransaction(tx =>
-                    {
-                        var queryResult = _hotelcypher.GetHotelListbyCity(tx,city);
-
-                        foreach (var record in queryResult)
-                        {
-                            var node = record["hotel"].As<INode>();
-                            listResult.Add(new Hotel
-                            {
-                                name = node["name"].As<string>(),
-                                displayName = node["displayName"].As<string>(),
-                                address = node["address"].As<string>(),
-                                contactPhone = node["contactPhone"].As<string>(),
-                                geo = node["geo"].As<string>(),
-                                domain = record["domain"].As<string>(),
-                                city = record["city"].As<string>(),
-                                description = node["description"].As<string>(),
-                                frontDeskPhone = node["frontDeskPhone"].As<string>(),
-                                restaurantPhone = node["restaurantPhone"].As<string>(),
-                                sosPhone = node["sosPhone"].As<string>(),
-                                welcomeIntroduction = node["welcomeIntroduction"].As<string>(),
-                                welcomeIntroduction_cn = node["welcomeIntroduction_cn"].As<string>(),
-                                welcomeIntroduction_tw = node["welcomeIntroduction_tw"].As<string>(),
-                                asr = node["asr"].As<int>(),
-                                createdAt = node["createdAt"].As<string>(),
-                                updatedAt = node["updatedAt"].As<string>()
-                            });
-                        }
-
-                        return (listResult);
-                    });
-
-                    if (getResult.Count() > 0)
-                    {
-                        _logger.LogInformation("Get Hotel List Success!");
-                        return Ok(getResult);
-                    }
-                    else
-                    {
-                        _logger.LogError(string.Format("No hotel under {0}!", city));
-                        return BadRequest();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unknown Exception!");
-                return BadRequest();
-            }
-
-        }
-
-        [HttpGet("domain")]
-        public ActionResult<List<Hotel>> GetHotelListbyDomain(string domain)
-        {
-            var listResult = new List<Hotel>();
-            //.Single()[0].As<List<object>>()
-            try
-            {
-                using (var session = Neo4jDriver._driver.Session())
-                {
-                    var getResult = session.ReadTransaction(tx =>
-                    {
-                        var queryResult = _hotelcypher.GetHotelListbyDomain(tx, domain);
-
-                        foreach (var record in queryResult)
-                        {
-                            var node = record["hotel"].As<INode>();
-                            listResult.Add(new Hotel
-                            {
-                                name = node["name"].As<string>(),
-                                displayName = node["displayName"].As<string>(),
-                                address = node["address"].As<string>(),
-                                contactPhone = node["contactPhone"].As<string>(),
-                                geo = node["geo"].As<string>(),
-                                domain = record["domain"].As<string>(),
-                                city = record["city"].As<string>(),
-                                description = node["description"].As<string>(),
-                                frontDeskPhone = node["frontDeskPhone"].As<string>(),
-                                restaurantPhone = node["restaurantPhone"].As<string>(),
-                                sosPhone = node["sosPhone"].As<string>(),
-                                welcomeIntroduction = node["welcomeIntroduction"].As<string>(),
-                                welcomeIntroduction_cn = node["welcomeIntroduction_cn"].As<string>(),
-                                welcomeIntroduction_tw = node["welcomeIntroduction_tw"].As<string>(),
-                                asr = node["asr"].As<int>(),
-                                createdAt = node["createdAt"].As<string>(),
-                                updatedAt = node["updatedAt"].As<string>()
-                            });
-                        }
-
-                        return (listResult);
-                    });
-
-                    if(getResult.Count() > 0)
-                    {
-                        _logger.LogInformation("Get Hotel List Success!");
-                        return Ok(getResult);
-                    }
-                    else
-                    {
-                        _logger.LogError(string.Format("No hotel under {0}!", domain));
-                        return BadRequest();
-                    }                 
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unknown Exception!");
-                return BadRequest();
-            }
-
-        }
-
-        [HttpGet("asr")]
-        public ActionResult<List<Hotel>> GetHotelListbyAsr(int asr)
-        {
-            var listResult = new List<Hotel>();
-            //.Single()[0].As<List<object>>()
-            try
-            {
-                using (var session = Neo4jDriver._driver.Session())
-                {
-                    var getResult = session.ReadTransaction(tx =>
-                    {
-                        var queryResult = _hotelcypher.GetHotelListbyAsr(tx, asr);
-
-                        foreach (var record in queryResult)
-                        {
-                            var node = record["hotel"].As<INode>();
-                            listResult.Add(new Hotel
-                            {
-                                name = node["name"].As<string>(),
-                                displayName = node["displayName"]?.As<string>(),
-                                address = node["address"].As<string>(),
-                                contactPhone = node["contactPhone"].As<string>(),
-                                geo = node["geo"].As<string>(),
-                                domain = record["domain"].As<string>(),
-                                city = record["city"].As<string>(),
-                                description = node["description"]?.As<string>(),
-                                frontDeskPhone = node["frontDeskPhone"].As<string>(),
-                                restaurantPhone = node["restaurantPhone"].As<string>(),
-                                sosPhone = node["sosPhone"].As<string>(),
-                                welcomeIntroduction = node["welcomeIntroduction"].As<string>(),
-                                welcomeIntroduction_cn = node["welcomeIntroduction_cn"].As<string>(),
-                                welcomeIntroduction_tw = node["welcomeIntroduction_tw"].As<string>(),
-                                asr = node["asr"].As<int>(),
-                                createdAt = node["createdAt"].As<string>(),
-                                updatedAt = node["updatedAt"].As<string>()
-                            });
-                        }
-
-                        return (listResult);
-                    });
-
-                    if (getResult.Count() > 0)
-                    {
-                        _logger.LogInformation("Get Hotel List Success!");
-                        return Ok(getResult);
-                    }
-                    else
-                    {
-                        _logger.LogError(string.Format("No hotel under asr({0})!", asr));
-                        return BadRequest();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unknown Exception!");
-                return BadRequest();
-            }
-
-        }
-        //public async Task<Hotel> GetHotelbyname(string name)
-*/
 
         // GET api/<ValuesController>/name
         //[Route("GetHotelByName")]
         [HttpGet("{name}")]
         public ActionResult<Hotel> GetHotelByName(string name,[Required] string domainname)
         {
-
-            var matchResult = new Hotel();
-            string domain = "";
-            string city = "";
-
             try
             {
-                using (var session = _driver.Session())
+                var getResult = _hotelcypher.GetHotel(_driver, name, domainname);
+
+                if (getResult != null)
                 {
-                    var getResult = session.ReadTransaction(tx =>
-                    {
-                        var queryResult = _hotelcypher.GetHotel(tx, name, domainname).SingleOrDefault();
-                        var hotel = queryResult?["hotel"];
-                        
-                        if (queryResult == null)
-                        {
-                            _logger.LogError("No content");
-                            return null;
-                        }
-                        city = queryResult["city"].ToString();
-                        domain = queryResult["domain"].ToString();
-
-                        return hotel.As<INode>().Properties;
-
-                    });
-
-                    var result = JsonConvert.SerializeObject(getResult);
-                    var final_result = JsonConvert.DeserializeObject<Hotel>(result);
-
-                    if (final_result != null)
-                    {
-                        matchResult = final_result;
-                        matchResult.city = city;
-                        matchResult.domain = domain;
-                        _logger.LogInformation("Hotel Read!");
-                        return Ok(matchResult);
-                    }
-                    else
-                    {
-                        matchResult = null;
-                        _logger.LogError("Result Not Found!");
-                        return BadRequest(matchResult);
-                    }
-
+                    _logger.LogInformation("Hotel Read!");
+                    return Ok(getResult);
+                }
+                else
+                {
+                    _logger.LogError("Result Not Found!");
+                    return BadRequest(getResult);
                 }
             }
             catch(Exception ex)
             {
-                matchResult = null;
                 _logger.LogError(ex, "Unknown Exception!");
-                return BadRequest(matchResult);
-
+                return BadRequest();
             }
         }
-
-/*
-        // GET api/<ValuesController>/name
-        //[Route("{name}")]
-        [HttpGet("displayName")]
-        public ActionResult<Hotel> GetHotelByDisplayName(string displayName, [Required] string domainname)
-        {
-
-            var matchResult = new Hotel();
-            string domain = "";
-            string city = "";
-
-            try
-            {
-                using (var session = Neo4jDriver._driver.Session())
-                {
-                    var getResult = session.ReadTransaction(tx =>
-                    {
-                        var queryResult = _hotelcypher.GetHotelbyDisplayName(tx, displayName, domainname).SingleOrDefault();
-                        var hotel = queryResult?["hotel"];
-
-                        if (queryResult == null)
-                        {
-                            _logger.LogError("No content");
-                            return null;
-                        }
-                        city = queryResult["city"].ToString();
-                        domain = queryResult["domain"].ToString();
-
-                        return hotel.As<INode>().Properties;
-
-                    });
-
-                    var result = JsonConvert.SerializeObject(getResult);
-                    var final_result = JsonConvert.DeserializeObject<Hotel>(result);
-
-                    if (final_result != null)
-                    {
-                        matchResult = final_result;
-                        matchResult.city = city;
-                        matchResult.domain = domain;
-                        _logger.LogInformation("Hotel Read!");
-                        return Ok(matchResult);
-                    }
-                    else
-                    {
-                        matchResult = null;
-                        _logger.LogError("Result Not Found!");
-                        return BadRequest(matchResult);
-                    }
-
-                }
-            }
-            catch (Exception ex)
-            {
-                matchResult = null;
-                _logger.LogError(ex, "Unknown Exception!");
-                return BadRequest(matchResult);
-
-            }
-        }
-*/
 
 
         // POST api/<ValuesController>

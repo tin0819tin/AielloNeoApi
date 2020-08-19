@@ -17,7 +17,7 @@ using Aiello_Restful_API.Models;
 using Aiello_Restful_API.Config;
 using Aiello_Restful_API.Controllers;
 using Aiello_Restful_API.ORM;
-//using Aiello_Restful_API.Data;
+using Aiello_Restful_API.Data;
 using Neo4j.Driver;
 
 namespace Aiello_Restful_API
@@ -42,26 +42,34 @@ namespace Aiello_Restful_API
             services.AddScoped<DomainCypher>();
             services.AddScoped<RoomCypher>();
             services.AddScoped<RoomStateCypher>();
-            //services.AddScoped<FloorCypher>();
-            //services.AddScoped<DeviceStatusCypher>();
-            //services.AddScoped<DeviceCypher>();
+            services.AddScoped<FloorCypher>();
+            services.AddScoped<DeviceStatusCypher>();
+            services.AddScoped<DeviceCypher>();
 
             //Neo4j DB
             IConfiguration state = Configuration.GetSection("Neo4jTesting");           
             services.AddSingleton(GraphDatabase.Driver(state["URL"], AuthTokens.Basic(state["ID"], state["PW"])));
 
             //EF core
-            //services.AddDbContext<TableContext>(options =>
-            //{
-            //    options.UseSqlServer(Configuration.GetConnectionString("TableContext"));
-            //});
+            services.AddDbContext<TableContext>(options =>
+            {
+                options.UseSqlServer(Configuration.GetConnectionString("TableContext"));
+            });
+
+            //API version
+            services.AddApiVersioning(x =>
+            {
+                x.DefaultApiVersion = new ApiVersion(1, 0);
+                x.AssumeDefaultVersionWhenUnspecified = true;
+                x.ReportApiVersions = true;
+            });
 
             // Register the Swagger services
             services.AddSwaggerDocument();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, TableContext tableContext)
         {
             if (env.IsDevelopment())
             {
@@ -81,7 +89,7 @@ namespace Aiello_Restful_API
             });
 
             //EF core
-            //tableContext.Database.EnsureCreated();    
+            tableContext.Database.EnsureCreated();    
            
 
             // Register the Swagger generator and the Swagger UI middlewares

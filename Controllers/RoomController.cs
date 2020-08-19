@@ -37,51 +37,20 @@ namespace Aiello_Restful_API.Controllers
         // GET: api/<ValuesController>
         [HttpGet]
         public ActionResult<Room> GetRoomList([Required][FromQuery] string hotelname, [FromQuery] string floor, [FromQuery] string roomState, [FromQuery] string roomType)
-        {
-            var listResult = new List<Room>();
-            
+        {           
             try
             {
-                using (var session = _driver.Session())
+                var getResult = _roomcypher.GetRoomList(_driver, hotelname, floor, roomState, roomType);
+
+                if (getResult.Count() > 0)
                 {
-                    var getResult = session.ReadTransaction(tx =>
-                    {
-                        var queryResult = _roomcypher.GetRoomList(tx, hotelname, floor, roomState, roomType);
-
-                        foreach (var record in queryResult)
-                        {
-                            var node = record["room"].As<INode>();
-                            var roomStates = new HashSet<string>();
-                            foreach (string roomState in record["roomStates"].As<List<string>>())
-                            {
-                                roomStates.Add(roomState);
-                            }
-
-                            listResult.Add(new Room
-                            {
-                                name = node["name"].As<string>(),
-                                hotelName = record["hotelName"].As<string>(),
-                                floor = record["floor"].As<string>(),
-                                roomStates = roomStates,
-                                roomType = record["roomType"].As<string>(),
-                                createdAt = node["createdAt"].As<string>(),
-                                updatedAt = node["updatedAt"].As<string>()
-                            });
-                        }
-
-                        return (listResult);
-                    });
-
-                    if (getResult.Count() > 0)
-                    {
-                        _logger.LogInformation("Get Room List Success!");
-                        return Ok(getResult);
-                    }
-                    else
-                    {
-                        _logger.LogError("Result Not Found!");
-                        return BadRequest();
-                    }
+                    _logger.LogInformation("Get Room List Success!");
+                    return Ok(getResult);
+                }
+                else
+                {
+                    _logger.LogError("Result Not Found!");
+                    return BadRequest();
                 }
             }
             catch (Exception ex)
@@ -95,14 +64,21 @@ namespace Aiello_Restful_API.Controllers
         [HttpGet("{name}")]
         public ActionResult<Room> GetRoombyName(string name, string hotelname)
         {
-            var matchResult = new Room();
-            string floor = "";
-            string roomtype = "";
-            string hotelName = "";
-            var roomStates = new HashSet<string>();
-
             try
             {
+                var getResult = _roomcypher.GetRoombyName(_driver, name, hotelname);
+                
+                if (getResult != null)
+                {
+                    _logger.LogInformation("Room Read!");
+                    return Ok(getResult);
+                }
+                else
+                {
+                    _logger.LogError("Result Not Found!");
+                    return BadRequest(getResult);
+                }
+                /*
                 using (var session = _driver.Session())
                 {
                     var getResult = session.ReadTransaction(tx =>
@@ -154,7 +130,7 @@ namespace Aiello_Restful_API.Controllers
                         return BadRequest(matchResult);
                     }
 
-                }
+                }*/
             }
             catch (Exception ex)
             {
@@ -269,20 +245,16 @@ namespace Aiello_Restful_API.Controllers
                     
                     var getResult = session.ReadTransaction(tx =>
                     {
-                        var queryResult = _roomcypher.GetRoombyName(tx, name, room.hotelName).SingleOrDefault();
+                        var queryResult = _roomcypher.GetRoombyName(_driver, name, room.hotelName);
 
                         if (queryResult == null)
                         {
-                            queryResult = _roomcypher.GetRoombyNameNoRoomType(tx, name, room.hotelName).SingleOrDefault();
-
-                            if (queryResult == null)
-                            {
-                                return null;
-                            }
+                           return null;
                         }
 
                         return "True";
                     });
+
                     if(getResult == null)
                     {
                         _logger.LogError("No Room Found");
