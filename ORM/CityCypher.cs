@@ -16,12 +16,58 @@ namespace Aiello_Restful_API.ORM
 {
     public class CityCypher
     {
-        public IResult GetCity(ITransaction tx, string name)
+        public readonly IDriver _driver;
+
+        public CityCypher(IDriver driver)
         {
-            var getCity = "MATCH (c:City {name:$name}) RETURN c ";
+            _driver = driver;
+        }
+
+        public IResult GetCityCypher(ITransaction tx, string name)
+        {
+            var getCity = "MATCH (c:City {name:$name}) RETURN c as city";
 
             return tx.Run(getCity, new { name });
 
+        }
+
+        public City GetCity(string name)
+        {
+                     
+            using (var session = _driver.Session())
+            {
+                try
+                {
+                    var getResult = session.ReadTransaction(tx =>
+                    {
+                        var queryResult = GetCityCypher(tx, name).SingleOrDefault();
+                        var city = queryResult?["city"];
+
+                        if (queryResult == null)
+                        {
+                            return null;
+                        }
+                        return city.As<INode>().Properties;
+
+                    });
+
+                    if(getResult != null)
+                    {
+                        var result = JsonConvert.SerializeObject(getResult);
+                        var final_result = JsonConvert.DeserializeObject<City>(result);
+                        return final_result;
+                    }
+                    else
+                    {
+                        return null;
+                    }
+                    
+                }
+                catch (Exception)
+                {
+                    throw;
+                }
+            }
         }
 
         public IResult GetCityList(ITransaction tx)

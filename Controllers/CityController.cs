@@ -77,11 +77,22 @@ namespace Aiello_Restful_API.Controllers
         [HttpGet("{name}")]
         public ActionResult<City> GetCitybyName(string name)
         {
-            var matchResult = new City();
             
             try
             {
-                using(var session = _driver.Session())
+                var getResult = _cityCypher.GetCity(name);
+
+                if (getResult != null)
+                {
+                    _logger.LogInformation("City Read!");
+                    return Ok(getResult);
+                }
+                else
+                {
+                    _logger.LogError("Result Not Found!");
+                    return BadRequest(getResult);
+                }
+                /*using(var session = _driver.Session())
                 {
                     var getResult = session.ReadTransaction(tx =>
                     {
@@ -108,13 +119,12 @@ namespace Aiello_Restful_API.Controllers
                         _logger.LogError("Result Not Found!");
                         return BadRequest(matchResult);
                     }
-                }
+                }*/
             }
             catch(Exception ex)
             {
-                matchResult = null;
                 _logger.LogError(ex, "Unknown Exception!");
-                return BadRequest(matchResult);
+                return BadRequest();
             }
         }
 

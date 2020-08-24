@@ -1,5 +1,6 @@
 ﻿using Aiello_Restful_API.Models;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Logging;
 using Neo4j.Driver;
 using Newtonsoft.Json;
 using System;
@@ -14,10 +15,19 @@ namespace Aiello_Restful_API.ORM
 {
     public class RoomCypher
     {
+        public readonly IDriver _driver;
+        private readonly ILogger<RoomCypher> _logger;
+
+        public RoomCypher(IDriver driver, ILogger<RoomCypher> logger)
+        {
+            _driver = driver;
+            _logger = logger;
+        }
+
         public IResult GetRoombyNameCypher(ITransaction tx, string name, string hotelname)
         {
             var getRoombyName = "MATCH (h:Hotel {name:$hotelname})-[:HAS_FLOOR]->(f:Floor)<-[:IS_FLOOR_AT]-(r:Room {name:$name})-[:IS_ROOM_STATE_OF]->(rs:RoomState) WITH r,h,f,rs OPTIONAL MATCH (r)-[:IS_ROOM_TYPE_OF]->(rt:RoomType) RETURN r as room, h.name as hotelName, f.name as floor, rt.name as roomtype, collect(rs.name) as roomstates";
-            
+
             return tx.Run(getRoombyName, new { name, hotelname });
         }
 
@@ -28,15 +38,14 @@ namespace Aiello_Restful_API.ORM
             return tx.Run(getRoombyName, new { name, hotelname });
         }
 
-        public Room GetRoombyName(IDriver driver, string name, string hotelname)
+        public Room GetRoombyName(string name, string hotelname)
         {
-            var matchResult = new Room();
             string floor = "";
             string roomtype = "";
             string hotelName = "";
             var roomStates = new HashSet<string>();
 
-            using (var session = driver.Session())
+            using (var session = _driver.Session())
             {
                 try
                 {
@@ -51,7 +60,7 @@ namespace Aiello_Restful_API.ORM
 
                         var room = queryResult?["room"];
                         floor = queryResult["floor"].ToString();
-                        if(queryResult?["roomtype"] != null)
+                        if (queryResult?["roomtype"] != null)
                         {
                             roomtype = queryResult?["roomtype"].ToString();
                         }
@@ -65,7 +74,7 @@ namespace Aiello_Restful_API.ORM
 
                     });
 
-                    if(getResult != null)
+                    if (getResult != null)
                     {
                         var result = JsonConvert.SerializeObject(getResult);
                         var final_result = JsonConvert.DeserializeObject<Room>(result);
@@ -116,10 +125,10 @@ namespace Aiello_Restful_API.ORM
                     getRoomList = cypherBody + cypherFloor + ' ' + cypherOptionalRoomType + cypherReturn;
                     break;
                 case "1010":
-                    getRoomList = cypherBody + cypherRoomState + ' ' + cypherOptionalRoomType + cypherAllRoomState +  cypherReturn; 
+                    getRoomList = cypherBody + cypherRoomState + ' ' + cypherOptionalRoomType + cypherAllRoomState + cypherReturn;
                     break;
                 case "1001":
-                    getRoomList = cypherBody0 + cypherRoomType + cypherReturn; 
+                    getRoomList = cypherBody0 + cypherRoomType + cypherReturn;
                     break;
                 case "1110":
                     getRoomList = cypherBody + cypherFloor + " AND " + cypherRoomState + ' ' + cypherOptionalRoomType + cypherAllRoomState + cypherReturn;
@@ -135,15 +144,15 @@ namespace Aiello_Restful_API.ORM
                     break;
             }
 
-            
+
             return tx.Run(getRoomList, new { hotelname, floor, roomState, roomType });
         }
 
-        public List<Room> GetRoomList(IDriver driver, string hotelname, string floor, string roomState, string roomType)
+        public List<Room> GetRoomList(string hotelname, string floor, string roomState, string roomType)
         {
             var listResult = new List<Room>();
 
-            using (var session = driver.Session())
+            using (var session = _driver.Session())
             {
                 try
                 {
@@ -181,13 +190,13 @@ namespace Aiello_Restful_API.ORM
                 {
                     throw;
                 }
-                
+
             }
         }
 
         public IResult ConnectRoomState2Room(ITransaction tx, string name, Room room, string roomState)
         {
-            var createRoomState = "MATCH (h:Hotel {name:$room.hotelName})-[:HAS_FLOOR]->(f:Floor {name:$room.floor})<-[:IS_FLOOR_AT]-(r:Room {name:$name}) WITH r MATCH (rs:RoomState {name:$roomState}) WITH r, rs MERGE (r)-[:IS_ROOM_STATE_OF]->(rs) WITH r,rs SET r.updatedAt = datetime({timezone: '+08:00'}) RETURN 'RoomState('+ rs.name +') is connect to Room(' + r.name + ')'";
+            var createRoomState = "MATCH (h:Hotel {name:$room.hotelName})-[:HAS_FLOOR]->(f:Floor {name:$room.floor})<-[:IS_FLOOR_AT]-(r:Room {name:$name}) WITH r MATCH (rs:RoomState {name:$roomState}) WITH r, rs MERGE (r)-[:IS_ROOM_STATE_OF]->(rs) WITH r,rs SET r.updatedAt = datetime({timezone: '+08:00'}) RETURN 'RoomState('+ rs.name +') is connect to Room(' + r.name + ')', r as room";
 
             return tx.Run(createRoomState, new { room, roomState, name });
         }
@@ -199,7 +208,7 @@ namespace Aiello_Restful_API.ORM
             var test = tx.Run(checkRoomTypeExisted, new { room });
             var check_result = test.SingleOrDefault()?["roomtype"];
 
-            if(check_result == null)
+            if (check_result == null)
             {
                 var createRoomType = "MATCH (h:Hotel {name:$room.hotelName})-[:HAS_FLOOR]->(f:Floor { name:$room.floor})<-[:IS_FLOOR_AT]-(r:Room { name:$room.name}) WITH r CREATE (rt:RoomType {name:$room.roomType}) WITH r,rt MERGE (r)-[:IS_ROOM_TYPE_OF]->(rt) WITH r,rt SET rt.createdAt = datetime({timezone: '+08:00'}), rt.updatedAt = datetime({timezone: '+08:00'}) RETURN 'RoomType('+ rt.name +') is connect to Room(' + r.name + ')' ";
 
@@ -210,7 +219,7 @@ namespace Aiello_Restful_API.ORM
                 var upddateRoomType = "MATCH (h:Hotel {name:$room.hotelName})-[:HAS_FLOOR]->(f:Floor)<-[:IS_FLOOR_AT]-(r:Room) WITH r MATCH (r)-[:IS_ROOM_TYPE_OF]->(rt:RoomType {name:$room.roomType}) WITH distinct(rt) MATCH (h:Hotel {name:$room.hotelName})-[:HAS_FLOOR]->(f:Floor { name:$room.floor })<-[:IS_FLOOR_AT]-(r:Room { name:$room.name}) WITH r,rt MERGE (r)-[:IS_ROOM_TYPE_OF]->(rt) WITH r,rt SET rt.updatedAt = datetime({timezone: '+08:00'}) RETURN 'RoomType('+ rt.name +') is connect to Room(' + r.name + ')'";
                 return tx.Run(upddateRoomType, new { room });
             }
-            
+
         }
 
         public IResult BuildFloor2Hotel(ITransaction tx, Room room)
@@ -232,7 +241,7 @@ namespace Aiello_Restful_API.ORM
             }
         }
 
-        public IResult CreateRoom(ITransaction tx, Room room)
+        public IResult CreateRoomCypher(ITransaction tx, Room room)
         {
             var checkRoomUnderFloor = "MATCH (h:Hotel {name:$room.hotelName})-[:HAS_FLOOR]->(f:Floor {name:$room.floor})<-[:IS_FLOOR_AT]-(r:Room {name:$room.name}) RETURN r";
             var checkResult = tx.Run(checkRoomUnderFloor, new { room });
@@ -249,7 +258,85 @@ namespace Aiello_Restful_API.ORM
             {
                 return checkResult;
             }
-            
+
+        }
+
+        public Room CreateRoom(Room room)
+        {
+            using(var session = _driver.Session())
+            {
+                try
+                {
+                    var createRoomResult = "";
+
+                    using(var tx = session.BeginTransaction())
+                    {
+                        var createFloor2HotelResult = BuildFloor2Hotel(tx, room).SingleOrDefault();
+
+                        var result1 = createFloor2HotelResult?[0].As<string>();
+
+                        if (result1 == null)
+                        {
+                            _logger.LogInformation("The Floor is under the Hotel already!");
+                        }
+                        else
+                        {
+                            _logger.LogInformation(result1);
+                        }
+
+                        var createRoom2FloorResult = CreateRoomCypher(tx, room).SingleOrDefault();
+
+                        var result2 = createRoom2FloorResult?[0].As<string>();
+
+                        if (result2 == null)
+                        {
+                            _logger.LogError("Same Room is Existed already!");
+                            tx.Rollback();
+                        }
+                        else
+                        {
+                            _logger.LogInformation(result2);
+                        }
+
+                        if (room.roomType != null)
+                        {
+                            //Add RoomType
+                            var createRoomType2RoomResult = ConnectRoomType2Room(tx, room).SingleOrDefault();
+
+                            _logger.LogInformation(createRoomType2RoomResult[0].As<string>());
+                        }
+
+                        string roomState = "Available";
+                        var createRoomState2RoomResult = ConnectRoomState2Room(tx, room.name, room, roomState).SingleOrDefault();
+
+                        var result3 = createRoomState2RoomResult?[0].As<string>();
+
+                        _logger.LogInformation(result3);
+
+
+                        if(createRoomState2RoomResult != null)
+                        {
+                            createRoomResult = JsonConvert.SerializeObject(createRoomState2RoomResult?["room"].As<INode>().Properties);
+                            tx.Commit();
+                        }     
+                    }
+
+                    if (createRoomResult != null)
+                    {
+                        var final_result = JsonConvert.DeserializeObject<Room>(createRoomResult);
+                        return final_result;
+                    }
+                    else
+                    {
+                        return null;
+                    }
+
+                }
+                catch (Exception)
+                {
+                    throw;
+                }
+            }
         }
 
         public IResult UpdateRoomFloor(ITransaction tx, string name, Room room)
@@ -328,6 +415,87 @@ namespace Aiello_Restful_API.ORM
                 return tx.Run(upddateRoomType, new { room, name });
             }
        
+        }
+
+        public Room UpdateRoom(string name, Room room)
+        {
+            using(var session = _driver.Session())
+            {
+                try
+                {
+                    var putRoomResult = "";
+
+                    using (var tx = session.BeginTransaction())
+                    {
+                        if (room.roomType != null)
+                        {
+                            //Add RoomType
+                            var createRoomType2RoomResult = UpdateRoomType(tx, name, room).SingleOrDefault();
+
+                            _logger.LogInformation(createRoomType2RoomResult[0].As<string>());
+                        }
+
+                        HashSet<string> set1 = new HashSet<string>() { "Available", "Unavailable", "Occupied" };
+                        HashSet<string> set2 = new HashSet<string>() { "MUR", "DND" };
+                        HashSet<string> set3 = new HashSet<string>() { "Complaint", "Electricity", "Service", "InService", "Repair" };
+                        HashSet<string> set4 = new HashSet<string>() { "Unavailable" };
+
+                        var num1 = room.roomStates.Intersect(set1).Count();
+                        var num2 = room.roomStates.Intersect(set2).Count();
+                        var num3 = room.roomStates.Intersect(set3).Count();
+                        var num4 = room.roomStates.Intersect(set4).Count();
+                        IRecord createRoomState2RoomResult = null;
+
+                        if (num1 > 1 || num2 > 1 || (num1 + num2 + num3) == 0 || num2 * num4 != 0)
+                        {
+                            _logger.LogError("RoomStates exist conflict!");
+                            tx.Rollback();
+                        }
+                        else
+                        {
+                            DeleteRoomState(tx, name, room);
+
+                            
+                            foreach (string roomState in room.roomStates)
+                            {
+                                createRoomState2RoomResult = ConnectRoomState2Room(tx, name, room, roomState).SingleOrDefault();
+                                var updateRoomState = createRoomState2RoomResult?[0].As<string>();
+
+                                if (updateRoomState == null)
+                                {
+                                    _logger.LogError("A RoomState is Not Exist!");
+                                    tx.Rollback();
+                                    tx.Dispose();
+                                }
+                                else
+                                {
+                                    _logger.LogInformation(updateRoomState);
+                                }
+                            }
+                        }
+
+                        if(createRoomState2RoomResult != null)
+                        {
+                            putRoomResult = JsonConvert.SerializeObject(createRoomState2RoomResult?["room"].As<INode>().Properties);
+                            tx.Commit();
+                        }  
+                    }
+                    
+                    if(putRoomResult != "")
+                    {
+                        var final_result = JsonConvert.DeserializeObject<Room>(putRoomResult);
+                        return final_result;
+                    }
+                    else
+                    {
+                        return null;
+                    }
+                }
+                catch (Exception)
+                {
+                    throw;
+                }
+            }
         }
     }
 }

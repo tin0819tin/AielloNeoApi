@@ -42,9 +42,10 @@ namespace Aiello_Restful_API
             services.AddScoped<DomainCypher>();
             services.AddScoped<RoomCypher>();
             services.AddScoped<RoomStateCypher>();
-            services.AddScoped<FloorCypher>();
             services.AddScoped<DeviceStatusCypher>();
             services.AddScoped<DeviceCypher>();
+            
+            //services.AddScoped(typeof(HotelCypher),typeof(Neo4jDriver));
 
             //Neo4j DB
             IConfiguration state = Configuration.GetSection("Neo4jTesting");           

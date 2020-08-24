@@ -25,13 +25,13 @@ namespace Aiello_Restful_API.Controllers
     {
         private readonly ILogger<RoomController> _logger;
         private readonly RoomCypher _roomcypher;
-        private readonly IDriver _driver;
+        private readonly HotelCypher _hotelcypher;
 
-        public RoomController(ILogger<RoomController> logger, RoomCypher roomCypher, IDriver driver)
+        public RoomController(ILogger<RoomController> logger, RoomCypher roomCypher, HotelCypher hotelCypher)
         {
             _logger = logger;
             _roomcypher = roomCypher;
-            _driver = driver;
+            _hotelcypher = hotelCypher;
         }
 
         // GET: api/<ValuesController>
@@ -40,7 +40,7 @@ namespace Aiello_Restful_API.Controllers
         {           
             try
             {
-                var getResult = _roomcypher.GetRoomList(_driver, hotelname, floor, roomState, roomType);
+                var getResult = _roomcypher.GetRoomList(hotelname, floor, roomState, roomType);
 
                 if (getResult.Count() > 0)
                 {
@@ -66,7 +66,7 @@ namespace Aiello_Restful_API.Controllers
         {
             try
             {
-                var getResult = _roomcypher.GetRoombyName(_driver, name, hotelname);
+                var getResult = _roomcypher.GetRoombyName(name, hotelname);
                 
                 if (getResult != null)
                 {
@@ -78,59 +78,6 @@ namespace Aiello_Restful_API.Controllers
                     _logger.LogError("Result Not Found!");
                     return BadRequest(getResult);
                 }
-                /*
-                using (var session = _driver.Session())
-                {
-                    var getResult = session.ReadTransaction(tx =>
-                    {
-                        var queryResult = _roomcypher.GetRoombyName(tx, name, hotelname).SingleOrDefault();                     
-
-                        if (queryResult == null)
-                        {
-                            queryResult = _roomcypher.GetRoombyNameNoRoomType(tx, name, hotelname).SingleOrDefault();
-
-                            if(queryResult == null)
-                            {
-                                _logger.LogError("No content");
-                                return null;
-                            }                         
-                        }
-
-                        var room = queryResult?["room"];
-                        floor = queryResult["floor"].ToString();
-                        roomtype = queryResult?["roomtype"].ToString();
-                        hotelName = queryResult["hotelName"].ToString();
-                        foreach (string roomState in queryResult["roomstates"].As<List<string>>())
-                        {
-                            roomStates.Add(roomState);
-                        }                       
-
-                        return room.As<INode>().Properties;
-
-                    });
-
-                    var result = JsonConvert.SerializeObject(getResult);
-                    var final_result = JsonConvert.DeserializeObject<Room>(result);
-
-                    if (final_result != null)
-                    {
-                        matchResult = final_result;
-                        matchResult.floor = floor;
-                        matchResult.roomType = roomtype;
-                        matchResult.hotelName = hotelName;
-                        matchResult.roomStates = roomStates;
-                        
-                        _logger.LogInformation("Room Read!");
-                        return Ok(matchResult);
-                    }
-                    else
-                    {
-                        matchResult = null;
-                        _logger.LogError("Result Not Found!");
-                        return BadRequest(matchResult);
-                    }
-
-                }*/
             }
             catch (Exception ex)
             {
@@ -145,10 +92,30 @@ namespace Aiello_Restful_API.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public ActionResult<Room> PostRoom(Room room)
         {
-
+            var createResult = new Room();
             try
             {
-                using (var session = _driver.Session())
+                var checkHotelResult = _hotelcypher.GetHotel(room.hotelName);
+                if(checkHotelResult == null)
+                {
+                    _logger.LogError("Hotel not exists!");
+                    return BadRequest(room);
+                }
+                
+                createResult = _roomcypher.CreateRoom(room);
+
+                if(createResult != null)
+                {
+                    _logger.LogInformation("Create Room Successful!");
+                    return CreatedAtAction(nameof(GetRoombyName), new { createResult.name, createResult.hotelName }, room);
+                }
+                else
+                {
+                    _logger.LogError("Create Room Failed!");
+                    return BadRequest(room);
+                }
+
+                /*using (var session = _driver.Session())
                 {       
 
                     var createFloor2HotelResult = session.WriteTransaction(tx =>
@@ -168,7 +135,7 @@ namespace Aiello_Restful_API.Controllers
 
                     var createRoom2FloorResult = session.WriteTransaction(tx =>
                     {
-                        return _roomcypher.CreateRoom(tx, room).SingleOrDefault();
+                        return _roomcypher.CreateRoomCypher(tx, room).SingleOrDefault();
                     });
                     var result2 = createRoom2FloorResult?[0].As<string>();
 
@@ -205,7 +172,7 @@ namespace Aiello_Restful_API.Controllers
 
 
                     return CreatedAtAction(nameof(GetRoombyName), new { room.name, room.hotelName }, room);
-                }
+                }*/
             }
             catch(Exception ex)
             {
@@ -219,13 +186,25 @@ namespace Aiello_Restful_API.Controllers
         // PUT api/<ValuesController>/5
         [HttpPut("{name}")]
         public ActionResult<Room> PutRoom(string name,[FromQuery] Room room)
-        {
-            
+        {          
             try
             {
+                var putResult = _roomcypher.UpdateRoom(name, room);
+
+                if(putResult != null)
+                {
+                    _logger.LogInformation(string.Format("UPDATE Room {0} Success!", name));
+                    return CreatedAtAction(nameof(GetRoombyName), new { room.name, room.hotelName }, room);
+                }
+                else
+                {
+                    _logger.LogError("Update Room Failed!");
+                    return BadRequest(room);
+                }
+                /*
                using (var session = _driver.Session())
                {
-                    /*
+                    
                     var updateFloorResult = session.WriteTransaction(tx =>
                     {
                         return _roomcypher.UpdateRoomFloor(tx, name, room).SingleOrDefault();
@@ -241,21 +220,10 @@ namespace Aiello_Restful_API.Controllers
                     {
                         _logger.LogInformation(updatefloor);
                     }
-                    */
                     
-                    var getResult = session.ReadTransaction(tx =>
-                    {
-                        var queryResult = _roomcypher.GetRoombyName(_driver, name, room.hotelName);
+                var queryResult = _roomcypher.GetRoombyName(name, room.hotelName);
 
-                        if (queryResult == null)
-                        {
-                           return null;
-                        }
-
-                        return "True";
-                    });
-
-                    if(getResult == null)
+                    if(queryResult == null)
                     {
                         _logger.LogError("No Room Found");
                         return BadRequest(room);
@@ -312,7 +280,7 @@ namespace Aiello_Restful_API.Controllers
                     }
 
                     return CreatedAtAction(nameof(GetRoombyName), new { room.name, room.hotelName }, room);
-                }
+                }*/
             }
             catch (Exception ex)
             {

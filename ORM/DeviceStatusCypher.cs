@@ -15,6 +15,13 @@ namespace Aiello_Restful_API.ORM
 {
     public class DeviceStatusCypher
     {
+        public readonly IDriver _driver;
+
+        public DeviceStatusCypher(IDriver driver)
+        {
+            _driver = driver;
+        }
+
         public IResult GetDeviceStatus(ITransaction tx, string name)
         {
             var getDeviceStatus = "MATCH (ds:DeviceStatus {name:$name}) RETURN ds as devicestatus";

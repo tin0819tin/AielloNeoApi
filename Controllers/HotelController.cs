@@ -31,13 +31,11 @@ namespace Aiello_Restful_API.Controllers
         private readonly ILogger<HotelController> _logger;
         private readonly HotelCypher _hotelcypher;
         private readonly CityCypher _cityCypher;
-        private readonly IDriver _driver;
-
-        public HotelController(ILogger<HotelController> logger, HotelCypher hotelCypher, CityCypher cityCypher, IDriver driver)
+        
+        public HotelController(ILogger<HotelController> logger, HotelCypher hotelCypher, CityCypher cityCypher)
         {
             _logger = logger;
             _hotelcypher = hotelCypher;
-            _driver = driver;
             _cityCypher = cityCypher;
         }
         // GET: api/<ValuesController>
@@ -47,7 +45,8 @@ namespace Aiello_Restful_API.Controllers
 
             try
             {
-                var getResult = _hotelcypher.GetHotelList(_driver, city, domain, displayName, asr);
+                
+                var getResult = _hotelcypher.GetHotelList(city, domain, displayName, asr);
 
                 if (getResult.Count() > 0)
                 {
@@ -76,7 +75,7 @@ namespace Aiello_Restful_API.Controllers
         {
             try
             {
-                var getResult = _hotelcypher.GetHotel(_driver, name, domainname);
+                var getResult = _hotelcypher.GetHotel(name, domainname);
 
                 if (getResult != null)
                 {
@@ -103,93 +102,51 @@ namespace Aiello_Restful_API.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public ActionResult<Hotel> PostHotel(Hotel hotel)
         {
-
-            //var newHotel = new Hotel();
-
+            var createResult = new Hotel();
             try
             {
-                using (var session = _driver.Session())
+                var cityResult = _cityCypher.GetCity(hotel.city);
+                if (cityResult == null)
                 {
-                    var cityResult = session.ReadTransaction(tx => 
+                    _logger.LogError("No city exist!");
+                    return BadRequest(hotel);
+                }
+
+                var domainResult = _hotelcypher.CheckDomain(hotel);
+
+                if (!domainResult)
+                {
+                    createResult = _hotelcypher.CreateHotel(hotel);
+                }
+                else
+                {
+                    var checkHotelResult = _hotelcypher.FindHotel2Domain(hotel);
+
+                    if (!checkHotelResult)
                     {
-                        return _cityCypher.GetCity(tx, hotel.city).Any();
-                    });
-                    if (!cityResult)
-                    {
-                        _logger.LogError("No city exist!");
-                        return BadRequest(hotel);
-                    }
-                    
-                    var domainResult = session.ReadTransaction(tx =>
-                    {
-                        return _hotelcypher.CheckDomain(tx, hotel).Any();
-                    });
-                    if (!domainResult)
-                    {
-
-                        session.WriteTransaction(tx =>_hotelcypher.CreateHotel(tx, hotel));
-
-                        var createDomain2HotelResult = session.WriteTransaction(tx =>
-                        {
-                            return _hotelcypher.CreateDomain2Hotel(tx, hotel).Single()[0].As<string>();
-                        });
-                        _logger.LogInformation(createDomain2HotelResult);
-
-                        //check City (optional)
-
-                        var createCity2HotelResult = session.WriteTransaction(tx =>
-                        {
-                            return _hotelcypher.CreateCity2Hotel(tx, hotel).Single()[0].As<string>();
-                        });
-                        _logger.LogInformation(createCity2HotelResult);
-
-                        _logger.LogInformation(_hotelcypher.CreateBCMnBRT2Hotel(session, hotel));
-
-                        return CreatedAtAction(nameof(GetHotelByName), new { hotel.name }, hotel);
-
+                        createResult = _hotelcypher.CreateHotel(hotel);
                     }
                     else
                     {
-                        var checkHotelResult = session.WriteTransaction(tx =>
-                        {
-                            return _hotelcypher.FindHotel2Domain(tx, hotel).Single()[0].As<bool>();
-                        });
-
-                        if (!checkHotelResult)
-                        {
-                            session.WriteTransaction(tx => _hotelcypher.CreateHotel(tx, hotel));
-
-                            var createDomain2HotelResult = session.WriteTransaction(tx =>
-                            {
-                                return _hotelcypher.CreateDomain2Hotel(tx, hotel).Single()[0].As<string>();
-                            });
-                            _logger.LogInformation(createDomain2HotelResult);
-
-                            //check City (optional)
-
-                            var createCity2HotelResult = session.WriteTransaction(tx =>
-                            {
-                                return _hotelcypher.CreateCity2Hotel(tx, hotel).Single()[0].As<string>();
-                            });
-                            _logger.LogInformation(createCity2HotelResult);
-
-                            _logger.LogInformation(_hotelcypher.CreateBCMnBRT2Hotel(session, hotel));
-
-                            return CreatedAtAction(nameof(GetHotelByName), new { hotel.name }, hotel);
-                        }
-                        else
-                        {
-                            _logger.LogError("The hotel is existed already! Please use PUT to update.");
-                            return Conflict(hotel);
-                        }
+                        _logger.LogError("The hotel is existed already! Please use PUT to update.");
+                        return Conflict(hotel);
                     }
                 }
+
+                if(createResult != null)
+                {
+                    return CreatedAtAction(nameof(GetHotelByName), new { createResult.name }, hotel);
+                }
+                else
+                {
+                    _logger.LogError("Create Hotel Failed!");
+                    return BadRequest(hotel);
+                }  
             }
             catch(Exception ex)
             {
-                //System.Diagnostics.Debug.WriteLine(ex.Message);
                 _logger.LogError(ex, "Unknown Exception!");
-                return BadRequest(hotel);
+                return BadRequest();
             }
         }
 
@@ -197,57 +154,25 @@ namespace Aiello_Restful_API.Controllers
         [HttpPut("{name}")]
         public ActionResult<Hotel> PutHotel(string name, string domainname, Hotel hotel)
         {
-            var updateHotel = new Hotel();
-            string domain = "";
-            string city = "";
-
             try
             {
-                using(var session = _driver.Session())
+                var putResult = _hotelcypher.UpdateHotel(name, domainname, hotel);
+
+                if (putResult != null)
                 {
-                    var updateResult = session.WriteTransaction(tx => {
-                        //tx.Rollback()
-                        
-                        var queryResult = _hotelcypher.UpdateHotel(tx, name, domainname, hotel).SingleOrDefault();
-                        var new_hotel = queryResult?["hotel"]; 
-
-                        if(queryResult == null)
-                        {
-                            _logger.LogError("The Domain or the City is not existed!");
-                            return null;
-                        }
-                        city = queryResult["city"].ToString();
-                        domain = queryResult["domain"].ToString();
-
-                        return new_hotel.As<INode>().Properties;
-                    });
-
-                    var result = JsonConvert.SerializeObject(updateResult);
-                    var final_result = JsonConvert.DeserializeObject<Hotel>(result);
-
-                    if (final_result != null)
-                    {
-                        updateHotel = final_result;
-                        updateHotel.city = city;
-                        updateHotel.domain = domain;
-                        updateHotel.name = name;
-
-                        _logger.LogInformation(string.Format("UPDATE Hotel {0} Success!", name));
-                        return CreatedAtAction(nameof(GetHotelByName), new { name }, hotel);
-                    }
-                    else
-                    {
-                        updateHotel = null;
-                        _logger.LogError("Update Failed!");
-                        return BadRequest(updateHotel);
-                    }
-                  
+                    _logger.LogInformation(string.Format("UPDATE Hotel {0} Success!", name));
+                    return CreatedAtAction(nameof(GetHotelByName), new { name }, hotel);
+                }
+                else
+                {
+                    _logger.LogError("Update Failed!");
+                    return BadRequest(hotel);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unknown Exception!");
-                return BadRequest(hotel);
+                return BadRequest();
 
             }
             

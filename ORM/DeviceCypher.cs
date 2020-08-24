@@ -15,6 +15,15 @@ namespace Aiello_Restful_API.ORM
 {
     public class DeviceCypher
     {
+        public readonly IDriver _driver;
+        private readonly ILogger<DeviceCypher> _logger;
+
+        public DeviceCypher(IDriver driver, ILogger<DeviceCypher> logger)
+        {
+            _driver = driver;
+            _logger = logger;
+        }
+
         public IResult GetDeciveListCypher(ITransaction tx, string hotel, string room, string uuid, string deviceStatus)
         {
             string task = "";
@@ -56,11 +65,11 @@ namespace Aiello_Restful_API.ORM
             return tx.Run(getDevice, new { hotel, room, uuid, deviceStatus });
         }
 
-        public List<Device> GetDeviceList(IDriver driver, string hotelName, string room, string uuid, string deviceStatus)
+        public List<Device> GetDeviceList(string hotelName, string room, string uuid, string deviceStatus)
         {
             var listResult = new List<Device>();
 
-            using (var session = driver.Session())
+            using (var session = _driver.Session())
             {
                 try
                 {
@@ -116,14 +125,13 @@ namespace Aiello_Restful_API.ORM
             return tx.Run(getDevice, new { mac });
         }
 
-        public Device GetDevicebyMac(IDriver driver, string mac)
+        public Device GetDevicebyMac(string mac)
         {
-            var matchResult = new Device();
             string hotel = "";
             string room = "";
             var deviceStatus = new HashSet<string>();
 
-            using (var session = driver.Session())
+            using (var session = _driver.Session())
             {
                 var getDeviceResult = session.ReadTransaction(tx =>
                 {
@@ -192,7 +200,7 @@ namespace Aiello_Restful_API.ORM
             return tx.Run(deleteDevice, new { device });
         }
 
-        public IResult UpdateDevice(ITransaction tx, string mac, Device device)
+        public IResult UpdateDeviceCypher(ITransaction tx, string mac, Device device)
         {
             var updateDevice = "MATCH (h:Hotel {name:$device.hotel})-[:HAS_FLOOR]->(f:Floor)<-[:IS_FLOOR_AT]-(r:Room {name:$device.room})--(d:Device {mac:$mac}) SET d.versionPushService = $device.versionPushService, d.versionImage = $device.versionImage, d.versionAPK = $device.versionAPK, d.updatedAt = datetime({ timezone:'+08:00'}) RETURN d";
              
@@ -201,7 +209,7 @@ namespace Aiello_Restful_API.ORM
 
         public IResult ConnectDeviceStatus(ITransaction tx, string mac, Device device, string deviceStatus)
         {
-            var connectDeviceStatus = "MATCH (h:Hotel {name:$device.hotel})-[:HAS_FLOOR]->(f:Floor)<-[:IS_FLOOR_AT]-(r:Room {name:$device.room})--(d:Device {mac:$mac}) WITH d MATCH (ds:DeviceStatus {name:$deviceStatus}) MERGE (d)-[:IS_DEVICE_STATUS_OF]-(ds) RETURN 'Device('+ d.mac +') is connect to DeviceStatus(' + ds.name + ')'";
+            var connectDeviceStatus = "MATCH (h:Hotel {name:$device.hotel})-[:HAS_FLOOR]->(f:Floor)<-[:IS_FLOOR_AT]-(r:Room {name:$device.room})--(d:Device {mac:$mac}) WITH d MATCH (ds:DeviceStatus {name:$deviceStatus}) MERGE (d)-[:IS_DEVICE_STATUS_OF]-(ds) RETURN 'Device('+ d.mac +') is connect to DeviceStatus(' + ds.name + ')', d as device";
 
             return tx.Run(connectDeviceStatus, new { mac, device, deviceStatus });
         }
@@ -211,6 +219,65 @@ namespace Aiello_Restful_API.ORM
             var connectDeviceStatus = "MATCH (h:Hotel {name:$device.hotel})-[:HAS_FLOOR]->(f:Floor)<-[:IS_FLOOR_AT]-(r:Room {name:$device.room})--(d:Device {mac:$mac}) WITH d MATCH (d)-[r1:IS_DEVICE_STATUS_OF]-(ds:DeviceStatus) DELETE r1 ";
 
             return tx.Run(connectDeviceStatus, new { mac, device });
+        }
+
+        public Device UpdateDevice(string mac, Device device)
+        {
+            using(var session = _driver.Session())
+            {
+                try
+                {
+                    var putResult = "";
+
+                    using(var tx = session.BeginTransaction())
+                    {
+                        UpdateDeviceCypher(tx, mac, device);
+                        DeleteDeviceStatus(tx, mac, device);
+                        IRecord createDeviceStatus2Device = null;
+
+                        foreach (string devicestatus in device.deviceStatus)
+                        {
+                            createDeviceStatus2Device = ConnectDeviceStatus(tx, mac, device, devicestatus).SingleOrDefault();
+                            //var createDeviceStatus2Device = session.WriteTransaction(tx =>
+                            //{
+                            //    return ConnectDeviceStatus(tx, mac, device, devicestatus).SingleOrDefault();
+                            //});
+                            var updateDeviceStatus = createDeviceStatus2Device?[0].As<string>();
+
+                            if (updateDeviceStatus == null)
+                            {
+                                _logger.LogError("A DeviceStatus is Not Exist!");
+                                tx.Rollback();
+                                tx.Dispose();
+                            }
+                            else
+                            {
+                                _logger.LogInformation(updateDeviceStatus);
+                            }
+                        }
+
+                        if(createDeviceStatus2Device != null)
+                        {
+                            putResult = JsonConvert.SerializeObject(createDeviceStatus2Device?["device"].As<INode>().Properties);
+                            tx.Commit();
+                        }
+                    }
+
+                    if(putResult != "")
+                    {
+                        var final_result = JsonConvert.DeserializeObject<Device>(putResult);
+                        return final_result;
+                    }
+                    else
+                    {
+                        return null;
+                    }
+                }
+                catch (Exception)
+                {
+                    throw;
+                }
+            }
         }
 
     }

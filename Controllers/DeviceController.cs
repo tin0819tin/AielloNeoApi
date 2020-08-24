@@ -59,7 +59,7 @@ namespace Aiello_Restful_API.Controllers
         {                   
             try
             {
-                var getResult = _devicecypher.GetDeviceList(_driver, hotelName, room, uuid, deviceStatus);
+                var getResult = _devicecypher.GetDeviceList(hotelName, room, uuid, deviceStatus);
                 
                 if (getResult.Count() > 0)
                 {
@@ -88,7 +88,7 @@ namespace Aiello_Restful_API.Controllers
             
             try
             {
-                var getResult = _devicecypher.GetDevicebyMac(_driver, mac);
+                var getResult = _devicecypher.GetDevicebyMac(mac);
 
                 if (getResult != null)
                 {
@@ -190,18 +190,30 @@ namespace Aiello_Restful_API.Controllers
         {
             try
             {
+                var checkDeviceResult = _devicecypher.GetDevicebyMac(mac);
+
+                if (checkDeviceResult == null)
+                {
+                    _logger.LogError("No Device Found!");
+                    return BadRequest(device);
+                }
+
+                var putResult = _devicecypher.UpdateDevice(mac, device);
+
+                if (putResult != null)
+                {
+                    _logger.LogInformation(string.Format("UPDATE Device {0} Success!", mac));
+                    return CreatedAtAction(nameof(GetDevicebyMac), new { putResult.mac }, device);
+                }
+                else
+                {
+                    _logger.LogError("Update Device Failed!");
+                    return BadRequest(device);
+                }
+                /*
                 using (var session = _driver.Session())
                 {
-                    var checkDeviceResult = session.ReadTransaction(tx =>
-                    {
-                        return _devicecypher.GetDevicebyMac(_driver, mac);
-                    });
-
-                    if(checkDeviceResult == null)
-                    {
-                        _logger.LogError("No Device Found!");
-                        return BadRequest(device);
-                    }
+                    
                     else
                     {
                         session.WriteTransaction(tx => _devicecypher.UpdateDevice(tx, mac, device));
@@ -227,7 +239,7 @@ namespace Aiello_Restful_API.Controllers
                         }
                         return CreatedAtAction(nameof(GetDevicebyMac), new { mac }, device);
                     }
-                }
+                }*/
             }
             catch (Exception ex)
             {

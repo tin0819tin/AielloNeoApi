@@ -16,6 +16,13 @@ namespace Aiello_Restful_API.ORM
 {
     public class RoomStateCypher
     {
+        public readonly IDriver _driver;
+
+        public RoomStateCypher(IDriver driver)
+        {
+            _driver = driver;
+        }
+
         public IResult GetRoomState(ITransaction tx, string name)
         {
             var getRoomState = "MATCH (r:RoomState {name:$name}) RETURN r as roomstate";
